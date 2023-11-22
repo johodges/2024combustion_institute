@@ -51,7 +51,7 @@ if __name__ == "__main__":
     fobi_out, fobi_hog_out, qr_out, fobi_mlr_out, _ = developRepresentativeCurve(mat, 'FoBi')
     fo_out, fo_hog_out, qr_out, fo_mlr_out, _ = developRepresentativeCurve(mat, 'Fo')
     xlim, ylim = getPlotLimits(material)
-    times = np.linspace(0, 10000, 50001) #xlim*2, 10001)
+    times = np.linspace(0, 3000, 6001) #xlim*2, 10001)
     
     fs=24
     lw = 3
@@ -200,7 +200,7 @@ if __name__ == "__main__":
         #total_energy_per_delta_ref = np.mean(total_energy_per_deltas)
         fobi_out, fobi_hog_out, qr_out, fobi_mlr_out, _ = developRepresentativeCurve(mat, 'FoBi')
         xlim, ylim = getPlotLimits(material)
-        times = np.linspace(0, 10000, 100001) #xlim*2, 10001)
+        times = np.linspace(0, 6000, 60001) #xlim*2, 10001)
         
         cases_to_plot = np.array(list(cases.keys()))
         thicknesses = np.array([cases[c]['delta'] for c in cases_to_plot])
