@@ -16,3 +16,8 @@ This repository contains the data, scripts, and technical documents required to 
   python process_faa_data.py
   python process_fpl_data.py
   ```
+* Generate plots
+  ```
+  python evaluate_faa_polymers.py
+  python evaluate_statistics.py
+  ```
