@@ -14,5 +14,5 @@ This repository contains the data, scripts, and technical documents required to 
   python fsri_collect_cone_data.py
   python process_fsri_database.py
   python process_faa_data.py
-  python proces_fpl_data.py
+  python process_fpl_data.py
   ```
