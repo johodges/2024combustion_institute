@@ -69,9 +69,9 @@ if __name__ == "__main__":
     nondimtype = 'FoBi'
     materials = ['PC','PVC', 'PMMA', 'HIPS', 'HDPE']
     
-    resultDir = "" #"E:\\projects\\1JLH-NIST2022\\out\\FSRI_materials_jlh\\"
-    inputFileDir = "" #"E:\\projects\\1JLH-NIST2022\\Validation\\FSRI_materials\\"
-    expFileDir = "" #"E:\\projects\\1JLH-NIST2022\\exp\\FSRI_Materials\\"
+    resultDir = ""
+    inputFileDir = ""
+    expFileDir = ""
     
     txt = 'Code,Number,Material,MaterialClass,DataFile,ResultDir,InputFileDir,ExpFileDir,'
     txt = txt + 'ReferenceExposure,ReferenceThickness,ReferenceTime,ReferenceHRRPUA,'
