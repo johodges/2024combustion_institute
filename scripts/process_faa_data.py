@@ -4,16 +4,13 @@ Created on Sat Apr 22 18:18:31 2023
 
 @author: jhodges
 """
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import glob, os
+import os
 
-from algorithms import getJHcolors, getMaterial, getMaterialClass
+from algorithms import getMaterial, getMaterialClass
 from algorithms import interpolateExperimentalData, findLimits
-from algorithms import developRepresentativeCurve, getFixedModelParams
-from algorithms import runSimulation
-from algorithms import calculateUncertainty, plotMaterialExtraction
+from algorithms import getFixedModelParams
 
 def getPlotLimits(material):
     if material == 'PVC':
@@ -40,8 +37,8 @@ def processCaseData_old(material, style='md_lmhf', save_csv=False):
         times = data[cases[c]['Time']]
         HRRs = data[cases[c]['HRR']]
         
-        targetTimes, HRRs_interp = interpolateExperimentalData(times, HRRs, targetDt=15, filterWidth=False)
-        tign, times_trimmed, hrrs_trimmed = findLimits(times, HRRs, 0.001, 0.9)
+        targetTimes, HRRs_interp = interpolateExperimentalData(times.values, HRRs.values, targetDt=15, filterWidth=False)
+        tign, times_trimmed, hrrs_trimmed = findLimits(times.values, HRRs.values, 0.001, 0.9)
         
         if save_csv:
             pd.DataFrame(np.array([times_trimmed.values-tign, hrrs_trimmed.values]).T, columns=['Time','HRRPUA']).to_csv('%s_%s.csv'%(material, c))
@@ -58,7 +55,7 @@ def processCaseData_old(material, style='md_lmhf', save_csv=False):
         cases[c]['hrrs_trimmed'] = hrrs_trimmed
         cases[c]['totalEnergy'] = totalEnergy
         
-        if ((times_trimmed.values[1:]-times_trimmed.values[:-1]).min() == 0):
+        if ((times_trimmed[1:]-times_trimmed[:-1]).min() == 0):
             print("Warning %s case %s has a zero time step"%(material, c))
     return cases, case_basis
 
