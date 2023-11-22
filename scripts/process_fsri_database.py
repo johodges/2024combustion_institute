@@ -290,21 +290,11 @@ def findLimits(times, HRRs, energyCutoff1, energyCutoff2):
 if __name__ == "__main__":
     
     data_dir = '../data/fsri_materials_processed/'
-    #save_dir = 'fsri_materials_database/03_Charts/'
-    #gene_dir = 'fsri_materials_database/06_Generated/'
     material_database = importFsriDatabase(data_dir, 15)
     
-    #material = 'Gypsum_Wallboard'
-    #flux = 25
-    #directory = 'fsri_materials_database/04_Computed/' + material + '/'
-    #coneData = getConeData(material, directory)
-    
-    
-    import matplotlib.pyplot as plt
-    
-    resultDir = "E:\\projects\\1JLH-NIST2022\\out\\FSRI_materials_jlh\\"
-    inputFileDir = "E:\\projects\\1JLH-NIST2022\\Validation\\FSRI_materials\\"
-    expFileDir = "E:\\projects\\1JLH-NIST2022\\exp\\FSRI_Materials\\"
+    resultDir = data_dir
+    inputFileDir = data_dir
+    expFileDir = data_dir
     emissivity = 1
     txt = 'Code,Number,Material,MaterialClass,DataFile,ResultDir,InputFileDir,ExpFileDir,'
     txt = txt + 'ReferenceExposure,ReferenceThickness,ReferenceTime,ReferenceHRRPUA,'
