@@ -1,0 +1,4 @@
+[submodule "data/fsri_materials_database"]
+	path = data/fsri_materials_database
+	url = https://github.com/johodges/fsri_materials_database
+	branch = 2024_combustion_institute
