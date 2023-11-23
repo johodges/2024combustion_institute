@@ -285,20 +285,34 @@ if __name__ == "__main__":
                 fig, sigma_m, delta = plotMaterialExtraction(exp_points, mod_points, split, label, diff=diff2, axmin=axmin, axmax=axmax, loglog=loglog, labelName=labelNames, mask=mask)
                 delta, sigma_m, sigma_e, num_points, points = calculateUncertaintyBounds(exp_points, mod_points, split, split=True)
                 
+                metric_outputs[metric][uncertaintyStatistic] = dict()
+                metric_outputs[metric][uncertaintyStatistic]['bias'] = delta
+                metric_outputs[metric][uncertaintyStatistic]['sigma_m'] = sigma_m
+                
                 for key in list(delta.keys()):
                     print('%s & %0.2f & %0.2f'%(key, delta[key], sigma_m[key]))
                 plt.savefig('..//figures//'+fname, dpi=300)
         totalUncertaintyStatistics[style] = metric_outputs #{'sigma_m': sigma_m, 'delta': delta}
     #pd.DataFrame(totalUncertaintyStatistics).to_csv("uncertainty_statistics_comparison.csv")
     
-    with pd.ExcelWriter('..//figures//%s_metrics_output.xlsx'%(nondimtype)) as writer:  
+    with pd.ExcelWriter('..//figures//%s_metrics_output.xlsx'%(nondimtype)) as writer:
         for style in styles:
             metric_outputs = totalUncertaintyStatistics[style]
             tosave = dict()
             for key in list(metric_outputs.keys()):
-                tosave[key] = dict()
-                tosave[key]['bias'] = metric_outputs[key]['bias']
-                tosave[key]['sigma_m'] = metric_outputs[key]['sigma_m']
+                for v in ['bias', 'sigma_m']:
+                    tosave[key+'-'+v] = dict()
+                    tosave[key+'-'+v]['Mixtures'] = metric_outputs[key]['materialClass'][v]['Mixtures']
+                    tosave[key+'-'+v]['Others'] = metric_outputs[key]['materialClass'][v]['Others']
+                    tosave[key+'-'+v]['Polymers'] = metric_outputs[key]['materialClass'][v]['Polymers']
+                    tosave[key+'-'+v]['Wood-Based'] = metric_outputs[key]['materialClass'][v]['Wood-Based']
+                    tosave[key+'-'+v]['cone < ref'] = metric_outputs[key]['exposure'][v][-1]
+                    tosave[key+'-'+v]['cone = ref'] = metric_outputs[key]['exposure'][v][0.1]
+                    tosave[key+'-'+v]['cone > ref'] = metric_outputs[key]['exposure'][v][1]
+                    tosave[key+'-'+v]['delta < ref'] = metric_outputs[key]['delta'][v][-1]
+                    tosave[key+'-'+v]['delta = ref'] = metric_outputs[key]['delta'][v][0.1]
+                    tosave[key+'-'+v]['delta > ref'] = metric_outputs[key]['delta'][v][1]
+                    tosave[key+'-'+v]['total'] = metric_outputs[key][v]
             tosave_pd = pd.DataFrame(tosave)
             tosave_pd.to_excel(writer, sheet_name=style)
             
