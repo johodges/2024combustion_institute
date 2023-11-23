@@ -732,14 +732,16 @@ def developRepresentativeCurve(mat, nondimtype='FoBi', plot=False, lw=3, colors=
         
         if nondimtype == 'Fo':
             nondim_t = Fo
-            nondim_time_max = max([nondim_time_max, np.nanmax(Fo)])
         elif nondimtype == 'FoBi':
-            nondim_t = Fo*Bi**1
-            nondim_time_max = max([nondim_time_max, np.nanmax(Fo*Bi)])
+            nondim_t = Fo*Bi
         elif nondimtype == 'Time':
             nondim_t = t
-            nondim_time_max = max([nondim_time_max, np.nanmax(t)])
-        
+        elif nondimtype == 'FoBi_simple':
+            flame = 25
+            qr = coneExposure + flame
+            hr = 0.0154*((qr*1000)**0.75)/1000
+            nondim_t = hr*t/(density*specific_heat*delta)
+        nondim_time_max = max([nondim_time_max, np.nanmax(nondim_t[np.isfinite(nondim_t)])])
         case_outs[c] = {'t': t, 'qr': qr, 'Fo': Fo, 'Bi': Bi, 'mass': mass, 'delta': delta, 'nondim_t': nondim_t}
         
         tmax = max([tmax, t.max()])
@@ -780,6 +782,9 @@ def developRepresentativeCurve(mat, nondimtype='FoBi', plot=False, lw=3, colors=
         
         qrs = sig*(Tf**4)*(1-np.exp(kf*lm)) + coneExposure
         qrs[qrs < 15] = 15
+        
+        if nondimtype == 'FoBi_simple':
+            qrs = np.zeros_like(qrs_out[:, i]) + coneExposure + flame
         
         inds = mlr < 0
         
@@ -1243,8 +1248,14 @@ def runSimulation(times, mat, delta0, coneExposure, totalEnergy, fobi_out, hog_o
         
         if nondimtype == 'Fo':
             ref = np.interp(Fo, fobi_out, hog_out)#, right=0.0)#, right=np.nan)
-        else:
+        elif nondimtype == 'FoBi':
             ref = np.interp(Fo*Bi**1, fobi_out, hog_out)#, right=0.0)#, right=np.nan)
+        elif nondimtype == 'FoBi_simple':
+            flame = 25
+            qr = coneExposure + flame
+            hr = 0.0154*((qr*1000)**0.75)/1000
+            nondim_t = hr*t/(density*specific_heat*d1)
+            ref = np.interp(nondim_t, fobi_out, hog_out)
         
         if np.isnan(ref) or ref == 0:
             ref = 0.0
