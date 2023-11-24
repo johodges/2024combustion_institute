@@ -741,6 +741,11 @@ def developRepresentativeCurve(mat, nondimtype='FoBi', plot=False, lw=3, colors=
             qr = coneExposure + flame
             hr = 0.0154*((qr*1000)**0.75)/1000
             nondim_t = hr*t/(density*specific_heat*delta)
+        elif nondimtype == 'FoBi_simple_fixed_d':
+            flame = 25
+            qr = coneExposure + flame
+            hr = 0.0154*((qr*1000)**0.75)/1000
+            nondim_t = hr*t/(density*specific_heat*delta0)
         nondim_time_max = max([nondim_time_max, np.nanmax(nondim_t[np.isfinite(nondim_t)])])
         case_outs[c] = {'t': t, 'qr': qr, 'Fo': Fo, 'Bi': Bi, 'mass': mass, 'delta': delta, 'nondim_t': nondim_t}
         
@@ -783,7 +788,7 @@ def developRepresentativeCurve(mat, nondimtype='FoBi', plot=False, lw=3, colors=
         qrs = sig*(Tf**4)*(1-np.exp(kf*lm)) + coneExposure
         qrs[qrs < 15] = 15
         
-        if nondimtype == 'FoBi_simple':
+        if nondimtype == 'FoBi_simple' or nondimtype == 'FoBi_simple_fixed_d':
             qrs = np.zeros_like(qrs_out[:, i]) + coneExposure + flame
         
         inds = mlr < 0
@@ -1254,7 +1259,15 @@ def runSimulation(times, mat, delta0, coneExposure, totalEnergy, fobi_out, hog_o
             flame = 25
             qr = coneExposure + flame
             hr = 0.0154*((qr*1000)**0.75)/1000
+            #nondim_t = hr*t/(density*specific_heat*d1)
             nondim_t = hr*t/(density*specific_heat*d1)
+            ref = np.interp(nondim_t, fobi_out, hog_out)
+        elif nondimtype == 'FoBi_simple_fixed_d':
+            flame = 25
+            qr = coneExposure + flame
+            hr = 0.0154*((qr*1000)**0.75)/1000
+            #nondim_t = hr*t/(density*specific_heat*d1)
+            nondim_t = hr*t/(density*specific_heat*delta0)
             ref = np.interp(nondim_t, fobi_out, hog_out)
         
         if np.isnan(ref) or ref == 0:
