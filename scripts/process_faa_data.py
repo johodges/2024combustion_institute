@@ -128,7 +128,7 @@ if __name__ == "__main__":
             
             thickness_txt = '%s%0.8f|'%(thickness_txt, thicknesses[i]/1000)
             
-            dataFile = os.path.abspath('../data/fsri_materials_processed/scaling_pyrolysis/%s-%02d.csv'%(mat, fluxes[i]))
+            dataFile = '../data/fsri_materials_processed/scaling_pyrolysis/%s-%02d.csv'%(mat, fluxes[i])
             dataFiles = dataFiles + dataFile + '|'
             dataFiles = dataFiles[:-1]
             

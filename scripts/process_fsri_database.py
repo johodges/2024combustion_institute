@@ -318,7 +318,7 @@ if __name__ == "__main__":
         mat = 'FSRI_%s'%(material)
         dataFiles = ''
         for flux in fluxes:
-            dataFile = os.path.abspath('../data/fsri_materials_processed/scaling_pyrolysis/%s-%02d.csv'%(mat, flux))
+            dataFile = '../data/fsri_materials_processed/scaling_pyrolysis/%s-%02d.csv'%(mat, flux)
             dataFiles = dataFiles + dataFile + '|'
         dataFiles = dataFiles[:-1]
         
