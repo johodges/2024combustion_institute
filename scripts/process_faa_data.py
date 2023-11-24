@@ -8,9 +8,165 @@ import numpy as np
 import pandas as pd
 import os
 
-from algorithms import getMaterial, getMaterialClass
+from algorithms import getMaterialClass
 from algorithms import interpolateExperimentalData, findLimits
 from algorithms import getFixedModelParams
+
+def getMaterial(material, style='md_lmhf'):
+    thicknesses = style.split('_')[0]
+    fluxes = style.split('_')[1]
+    
+    if material == 'PC':
+        referenceCurve = "..\\data\\faa_polymers\\PC.csv"
+        density = 1180.0
+        conductivity = 0.22 
+        specific_heat = 1.9
+        heat_of_combustion = 25.6
+        emissivity = 0.9
+        nu_char = 0.21
+        data = pd.read_csv(referenceCurve)
+        cases = {
+                 '3-75': {'Time' : 'Time_3_75', 'HRR' : 'HRR_3_75', 'delta' : 3, 'cone' : 75},
+                 
+                 '6-50': {'Time' : 'Time_6_50', 'HRR' : 'HRR_6_50', 'delta' : 5.5, 'cone' : 50},
+                 '6-75': {'Time' : 'Time_6_75', 'HRR' : 'HRR_6_75', 'delta' : 5.5, 'cone' : 75},
+                 '6-92': {'Time' : 'Time_6_92', 'HRR' : 'HRR_6_92', 'delta' : 5.5, 'cone' : 92},
+                 
+                 '9-75': {'Time' : 'Time_9_75', 'HRR' : 'HRR_9_75', 'delta' : 9, 'cone' : 75},
+                 }
+        
+        case_basis = []
+        if ('l' in fluxes) and ('l' in thicknesses): pass
+        if ('m' in fluxes) and ('l' in thicknesses): case_basis.append('3-75')
+        if ('h' in fluxes) and ('l' in thicknesses): pass
+        if ('l' in fluxes) and ('m' in thicknesses): case_basis.append('6-50')
+        if ('m' in fluxes) and ('m' in thicknesses): case_basis.append('6-75')
+        if ('h' in fluxes) and ('m' in thicknesses): case_basis.append('6-92')
+        if ('l' in fluxes) and ('h' in thicknesses): pass
+        if ('m' in fluxes) and ('h' in thicknesses): case_basis.append('9-75')
+        if ('h' in fluxes) and ('h' in thicknesses): pass
+    
+    elif material == 'PVC':
+        referenceCurve = "..\\data\\faa_polymers\\PVC.csv"
+        density = 1430.0
+        conductivity = 0.17 
+        specific_heat = 1.55
+        heat_of_combustion = 36.5
+        emissivity = 0.9
+        nu_char = 0.21
+        data = pd.read_csv(referenceCurve)
+        cases = {
+                 '3-75': {'Time' : 'Time_3_75', 'HRR' : 'HRR_3_75', 'delta' : 3, 'cone' : 75},
+                 
+                 '6-50': {'Time' : 'Time_6_50', 'HRR' : 'HRR_6_50', 'delta' : 6, 'cone' : 50},
+                 '6-75': {'Time' : 'Time_6_75', 'HRR' : 'HRR_6_75', 'delta' : 6, 'cone' : 75},
+                 '6-92': {'Time' : 'Time_6_92', 'HRR' : 'HRR_6_92', 'delta' : 6, 'cone' : 92},
+                 
+                 '9-75': {'Time' : 'Time_9_75', 'HRR' : 'HRR_9_75', 'delta' : 9, 'cone' : 75},
+                 }
+        case_basis = []
+        if ('l' in fluxes) and ('l' in thicknesses): pass
+        if ('m' in fluxes) and ('l' in thicknesses): case_basis.append('3-75')
+        if ('h' in fluxes) and ('l' in thicknesses): pass
+        if ('l' in fluxes) and ('m' in thicknesses): case_basis.append('6-50')
+        if ('m' in fluxes) and ('m' in thicknesses): case_basis.append('6-75')
+        if ('h' in fluxes) and ('m' in thicknesses): case_basis.append('6-92')
+        if ('l' in fluxes) and ('h' in thicknesses): pass
+        if ('m' in fluxes) and ('h' in thicknesses): case_basis.append('9-75')
+        if ('h' in fluxes) and ('h' in thicknesses): pass
+    elif material == 'PMMA':
+        referenceCurve = "..\\data\\faa_polymers\\pmma.csv"
+        density = 1100
+        conductivity = 0.20
+        specific_heat = 2.2
+        heat_of_combustion = 33.5 #24.450
+        emissivity = 0.85
+        nu_char = 0.0
+        data = pd.read_csv(referenceCurve)
+        cases = {
+                 '3-25': {'Time' : 'Time_3_25', 'HRR' : 'HRR_3_25', 'delta' : 3.2, 'cone' : 25},
+                 '8-24': {'Time' : 'Time_8_24', 'HRR' : 'HRR_8_24', 'delta' : 8.1, 'cone' : 24},
+                 '27-23': {'Time' : 'Time_27_23', 'HRR' : 'HRR_27_23', 'delta' : 27, 'cone' : 23},
+                 '3-50': {'Time' : 'Time_3_50', 'HRR' : 'HRR_3_50', 'delta' : 3.2, 'cone' : 50},
+                 '8-49': {'Time' : 'Time_8_49', 'HRR' : 'HRR_8_49', 'delta' : 8.1, 'cone' : 49},
+                 '27-46': {'Time' : 'Time_27_46', 'HRR' : 'HRR_27_46', 'delta' : 27, 'cone' : 46},
+                 '3-75': {'Time' : 'Time_3_75', 'HRR' : 'HRR_3_75', 'delta' : 3.2, 'cone' : 75},
+                 '8-73': {'Time' : 'Time_8_73', 'HRR' : 'HRR_8_73', 'delta' : 8.1, 'cone' : 73},
+                 '27-69': {'Time' : 'Time_27_69', 'HRR' : 'HRR_27_69', 'delta' : 27, 'cone' : 69}
+                 }
+        case_basis = []
+        if ('l' in fluxes) and ('l' in thicknesses): case_basis.append('3-25')
+        if ('m' in fluxes) and ('l' in thicknesses): case_basis.append('3-50')
+        if ('h' in fluxes) and ('l' in thicknesses): case_basis.append('3-75')
+        if ('l' in fluxes) and ('m' in thicknesses): case_basis.append('8-24')
+        if ('m' in fluxes) and ('m' in thicknesses): case_basis.append('8-49')
+        if ('h' in fluxes) and ('m' in thicknesses): case_basis.append('8-73')
+        if ('l' in fluxes) and ('h' in thicknesses): case_basis.append('27-23')
+        if ('m' in fluxes) and ('h' in thicknesses): case_basis.append('27-46')
+        if ('h' in fluxes) and ('h' in thicknesses): case_basis.append('27-69')
+    elif material == 'HIPS':
+        referenceCurve = "..\\data\\faa_polymers\\hips.csv"
+        density = 950
+        conductivity = 0.22
+        specific_heat = 2.0
+        heat_of_combustion = 39.2 #38.1
+        emissivity = 0.86
+        nu_char = 0.0
+        data = pd.read_csv(referenceCurve)
+        cases = {
+                 '3-25': {'Time' : 'Time_3_25', 'HRR' : 'HRR_3_25', 'delta' : 3.2, 'cone' : 25},
+                 '8-24': {'Time' : 'Time_8_24', 'HRR' : 'HRR_8_24', 'delta' : 8.1, 'cone' : 24},
+                 '27-23': {'Time' : 'Time_27_23', 'HRR' : 'HRR_27_23', 'delta' : 27, 'cone' : 23},
+                 '3-50': {'Time' : 'Time_3_50', 'HRR' : 'HRR_3_50', 'delta' : 3.2, 'cone' : 50},
+                 '8-49': {'Time' : 'Time_8_49', 'HRR' : 'HRR_8_49', 'delta' : 8.1, 'cone' : 49},
+                 '27-46': {'Time' : 'Time_27_46', 'HRR' : 'HRR_27_46', 'delta' : 27, 'cone' : 46},
+                 '3-75': {'Time' : 'Time_3_75', 'HRR' : 'HRR_3_75', 'delta' : 3.2, 'cone' : 75},
+                 '8-73': {'Time' : 'Time_8_73', 'HRR' : 'HRR_8_73', 'delta' : 8.1, 'cone' : 73},
+                 '27-69': {'Time' : 'Time_27_69', 'HRR' : 'HRR_27_69', 'delta' : 27, 'cone' : 69}
+                 }
+        case_basis = []
+        if ('l' in fluxes) and ('l' in thicknesses): case_basis.append('3-25')
+        if ('m' in fluxes) and ('l' in thicknesses): case_basis.append('3-50')
+        if ('h' in fluxes) and ('l' in thicknesses): case_basis.append('3-75')
+        if ('l' in fluxes) and ('m' in thicknesses): case_basis.append('8-24')
+        if ('m' in fluxes) and ('m' in thicknesses): case_basis.append('8-49')
+        if ('h' in fluxes) and ('m' in thicknesses): case_basis.append('8-73')
+        if ('l' in fluxes) and ('h' in thicknesses): case_basis.append('27-23')
+        if ('m' in fluxes) and ('h' in thicknesses): case_basis.append('27-46')
+        if ('h' in fluxes) and ('h' in thicknesses): case_basis.append('27-69')
+    elif material == 'HDPE':
+        referenceCurve = "..\\data\\faa_polymers\\hdpe.csv"
+        density = 860
+        conductivity = 0.29
+        specific_heat = 3.5
+        heat_of_combustion = 47.5 #43.5
+        emissivity = 0.92
+        nu_char = 0.0
+        data = pd.read_csv(referenceCurve)
+        cases = {
+                 '3-25': {'Time' : 'Time_3_25', 'HRR' : 'HRR_3_25', 'delta' : 3.2, 'cone' : 25},
+                 '8-24': {'Time' : 'Time_8_24', 'HRR' : 'HRR_8_24', 'delta' : 8.1, 'cone' : 24},
+                 '27-23': {'Time' : 'Time_27_23', 'HRR' : 'HRR_27_23', 'delta' : 27, 'cone' : 23},
+                 '3-50': {'Time' : 'Time_3_50', 'HRR' : 'HRR_3_50', 'delta' : 3.2, 'cone' : 50},
+                 '8-49': {'Time' : 'Time_8_49', 'HRR' : 'HRR_8_49', 'delta' : 8.1, 'cone' : 49},
+                 '27-46': {'Time' : 'Time_27_46', 'HRR' : 'HRR_27_46', 'delta' : 27, 'cone' : 46},
+                 '3-75': {'Time' : 'Time_3_75', 'HRR' : 'HRR_3_75', 'delta' : 3.2, 'cone' : 75},
+                 '8-73': {'Time' : 'Time_8_73', 'HRR' : 'HRR_8_73', 'delta' : 8.1, 'cone' : 73},
+                 '27-69': {'Time' : 'Time_27_69', 'HRR' : 'HRR_27_69', 'delta' : 27, 'cone' : 69}
+                 }
+        case_basis = []
+        if ('l' in fluxes) and ('l' in thicknesses): case_basis.append('3-25')
+        if ('m' in fluxes) and ('l' in thicknesses): case_basis.append('3-50')
+        if ('h' in fluxes) and ('l' in thicknesses): case_basis.append('3-75')
+        if ('l' in fluxes) and ('m' in thicknesses): case_basis.append('8-24')
+        if ('m' in fluxes) and ('m' in thicknesses): case_basis.append('8-49')
+        if ('h' in fluxes) and ('m' in thicknesses): case_basis.append('8-73')
+        if ('l' in fluxes) and ('h' in thicknesses): case_basis.append('27-23')
+        if ('m' in fluxes) and ('h' in thicknesses): case_basis.append('27-46')
+        if ('h' in fluxes) and ('h' in thicknesses): case_basis.append('27-69')
+    for c in list(cases.keys()):
+        cases[c]['File'] = referenceCurve
+    return density, conductivity, specific_heat, heat_of_combustion, emissivity, nu_char, data, cases, case_basis
 
 def getPlotLimits(material):
     if material == 'PVC':
