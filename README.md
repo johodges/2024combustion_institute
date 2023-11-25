@@ -21,3 +21,10 @@ This repository contains the data, scripts, and technical documents required to 
   python evaluate_faa_polymers.py
   python evaluate_statistics.py
   ```
+* Build paper
+  ```
+  pdflatex hodges2024_pyrolysis.tex
+  bibtex hodges2024_pyrolysis
+  pdflatex hodges2024_pyrolysis.tex
+  pdflatex hodges2024_pyrolysis.tex
+  ```
