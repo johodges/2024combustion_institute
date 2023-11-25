@@ -24,24 +24,15 @@ if __name__ == "__main__":
     resultDir = "E:\\projects\\1JLH-NIST2022\\materials\\faa_polymers\\"
     
     # Compare normalization schemes on model predictions
-    style = 'md_lmhf'
     nondimtype = 'FoBi'
-    materials = [
-                 'FAA_PC','FAA_PVC', # 'FAA_PMMA', 'FAA_HIPS', 'FA_HDPE',
-                 'FPL_hardboard_6mm', 'FPL_lumber_redoak_20mm',
-                 'FSRI_Black_PMMA','FSRI_Oak_Flooring'
-                 ]
-    #styles = ['md_lmhf','md_lf','md_mf','md_hf','lmhd_lmhf']
-    styles = ['md_mf']
-    makeHgPlots = [True, False, False, False, False]
+    
+    styles = ['md_mf'] # ['md_lmhf','md_lf','md_mf','md_hf','lmhd_lmhf']
+    makeHgPlots = [True] #[True, False, False, False, False]
     
     spec_file_dict = getMaterials()
     materials = list(spec_file_dict.keys())
     
-    #assert False, "Stopped"
-    #print(getListOfMaterials())
-    
-    #assert False, "Stopped"
+    #materials =['FSRI_Memory_Foam_Carpet_Pad']
     
     # Initialize variables
     fs=16
@@ -56,7 +47,6 @@ if __name__ == "__main__":
         for material in materials:
             output_statistics[material] = dict()
             xlim, ylim = getPlotLimits(material)
-            #density, conductivity, specific_heat, HoC, emissivity, nu_char, _, _, case_basis = getMaterial(material, style=style)
             spec_file_dict[material] = processCaseData(spec_file_dict[material])
             
             mat = spec_file_dict[material]
@@ -66,11 +56,16 @@ if __name__ == "__main__":
             (cases, case_basis, data) = (mat['cases'], mat['case_basis'], mat['data'])
             matClass = mat['materialClass']
             
-            times = np.linspace(0, 10000, 100001)
-            #times = np.linspace(0, xlim*2, 10001)
+            sim_times = np.linspace(0, 10000, 10001)
             
             total_energy_per_deltas = [case_basis[c]['totalEnergy']/case_basis[c]['delta'] for c in case_basis]
             total_energy_per_delta_ref = np.mean(total_energy_per_deltas)
+            
+            totalEnergyMax = np.nanmax([case_basis[c]['totalEnergy'] for c in case_basis])
+            
+            if totalEnergyMax < 100:
+                print("Total energy for %s is %0.1f < 100, skipping"%(material, totalEnergyMax))
+                continue
             
             fobi_out, fobi_hog_out, qr_out, fobi_mlr_out, _ = developRepresentativeCurve(mat, nondimtype=nondimtype)
             
@@ -83,7 +78,7 @@ if __name__ == "__main__":
                 if totalEnergy < 100:
                     continue
                 
-                times, hrrpuas, totalEnergy2 = runSimulation(times, mat, delta0, coneExposure, totalEnergy, fobi_out, fobi_hog_out, nondimtype=nondimtype)
+                times, hrrpuas, totalEnergy2 = runSimulation(sim_times, mat, delta0, coneExposure, totalEnergy, fobi_out, fobi_hog_out, nondimtype=nondimtype)
                 
                 if totalEnergy2 > totalEnergy:
                     print("Warning %s case %s more energy released than implied by basis and thickness"%(material, c))
@@ -135,7 +130,6 @@ if __name__ == "__main__":
             for material in materials:
                 matClass = spec_file_dict[material]['materialClass']
                 for case in list(output_statistics[material].keys()):
-                    #basis = output_statistics[material][case]['basis']
                     if output_statistics[material][case]['Qpeak_60s_exp'] > 100:
                         mask.append(True)
                         exp_points.append(output_statistics[material][case][exp_metric])
@@ -226,8 +220,7 @@ if __name__ == "__main__":
                 for key in list(delta.keys()):
                     print('%s & %0.2f & %0.2f'%(key, delta[key], sigma_m[key]))
                 plt.savefig('..//figures//'+fname, dpi=300)
-        totalUncertaintyStatistics[style] = metric_outputs #{'sigma_m': sigma_m, 'delta': delta}
-    #pd.DataFrame(totalUncertaintyStatistics).to_csv("uncertainty_statistics_comparison.csv")
+        totalUncertaintyStatistics[style] = metric_outputs
     
     with pd.ExcelWriter('..//figures//%s_metrics_output.xlsx'%(nondimtype)) as writer:
         for style in styles:

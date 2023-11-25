@@ -689,8 +689,12 @@ def interpolateBasisCases(mat, qr1, mass1, delta1, nondim_t1, t1, nondimtype):
         for jj in range(0, len(time2)):
             if time2[-jj] < time2[-jj-1]:
                 hogs_out[-jj, i] = np.nan
-        ind = np.where(~np.isnan(hogs_out[:, i]))[0][-1]
-        nonnan_max = max([nonnan_max, nondim_time_out[ind]])
+        
+        try:
+            ind = np.where(~np.isnan(hogs_out[:, i]))[0][-1]
+            nonnan_max = max([nonnan_max, nondim_time_out[ind]])
+        except:
+            pass
     inds = np.where(nondim_time_out <= nonnan_max)[0]
     inds = inds[1:]
     return nondim_time_out[inds], hogs_out[inds, :], qrs_out[inds, :], mlr_out[inds, :], times_out[inds, :]
