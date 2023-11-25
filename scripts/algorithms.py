@@ -611,8 +611,9 @@ def getExpNonDimensionalTime(qr, charFraction, delta, mat, c, nondimtype):
         if nondimtype == 'FoBi': nondim_t = Fo*Bi
         if nondimtype == 'Time': nondim_t = t
     elif nondimtype in ['FoBi_simple', 'FoBi_simple_fixed_d']:
-        hr = 0.0154*((qr*1000)**0.75)/1000
-        d = delta if 'FoBi_simple' else np.zeros(delta) + delta0
+        #hr = 0.0154*((qr*1000)**0.75)/1000
+        hr = 0.0154*((qr*1000))/1000
+        d = delta if (nondimtype == 'FoBi_simple') else np.zeros_like(delta) + delta0
         d[d < d_min] = d_min
         nondim_t = hr*t/(density*specific_heat*d)
     return nondim_t, t
@@ -634,16 +635,19 @@ def interpolateBasisCases(mat, qr1, mass1, delta1, nondim_t1, t1, nondimtype):
     ''' Interpolates all basis cases to a common non-dimensional time interval.
     '''
     # Find time limits
-    (tmax, nondim_time_max) = (-1, -1)
+    (tmax, nondim_time_max, nondim_time_min) = (-1, -1, 1e15)
     for c in list(t1.keys()):
         nondim_time_max = max([nondim_time_max, np.nanmax(nondim_t1[c][np.isfinite(nondim_t1[c])])])
+        nondim_time_min = min([nondim_time_min, np.nanmin(nondim_t1[c][np.isfinite(nondim_t1[c])][1:])])
         tmax = max([tmax, t1[c].max()])
     
     # Initialize arrays
     case_basis = list(qr1.keys())
     len_array = 10001
     nondim_time_out = np.zeros((len_array, ))
-    nondim_time_out[1:] = np.logspace(-3,np.log(nondim_time_max), int(len_array-1))
+    
+    nondim_time_out[1:] = np.logspace(np.log10(nondim_time_min),np.log10(nondim_time_max), int(len_array-1))
+    #nondim_time_out[1:] = np.logspace(-3,np.log(nondim_time_max), int(len_array-1))
     mlr_out = np.zeros((len_array,len(case_basis)))
     qrs_out = np.zeros((len_array,len(case_basis)))
     hogs_out = np.zeros((len_array,len(case_basis)))
@@ -818,7 +822,8 @@ def runSimulation(times, mat, delta0, coneExposure, totalEnergy, fobi_out, hog_o
         if nondimtype == 'FoBi': nondim_t = Fo*Bi #*1.2
         if nondimtype == 'Time': nondim_t = t
         if nondimtype in ['FoBi_simple', 'FoBi_simple_fixed_d']:
-            hr = 0.0154*((qr*1000)**0.75)/1000
+            #hr = 0.0154*((qr*1000)**0.75)/1000
+            hr = 0.0154*((qr*1000))/1000
             if nondimtype == 'FoBi_simple_fixed_d': d = delta0
             if d < d_min: d = d_min
             nondim_t = hr*t/(density*specific_heat*d)
