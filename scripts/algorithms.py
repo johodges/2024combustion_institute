@@ -525,7 +525,7 @@ def calculateThicknessFromHrr(hrrs_trimmed, times_trimmed, mat, c):
     mass[1:] = delta0*density - np.cumsum(hrrs_trimmed[1:]/(1e3*HoC)*(times_trimmed[1:]-times_trimmed[:-1]))
     
     energy = 0
-    warningPrinted = False
+    warningPrinted = True
     for j in range(1, hrrs_trimmed.shape[0]):
         energy += hrrs_trimmed[j]*cone_area/(times_trimmed[j]-times_trimmed[j-1])
         energyFraction[j] = energy / totalEnergy
@@ -665,9 +665,14 @@ def interpolateBasisCases(mat, qr1, mass1, delta1, nondim_t1, t1, nondimtype):
         
         mass2 = np.interp(nondim_time_out, nondim_t, mass, right=mass[-1])
         time2 = np.interp(nondim_time_out, nondim_t, t, right=np.nan)
-        
         mlr = np.zeros_like(mass2)
-        mlr[1:] = (mass2[:-1]-mass2[1:])/(time2[:-1]-time2[1:])
+        for j in range(0, time2.shape[0]-1):
+            if np.isnan(time2[j+1]):
+                break
+            dt = time2[j+1]-time2[j]
+            if dt <= 0.0:
+                break
+            mlr[j+1] = (mass2[j+1]-mass2[j])/dt
         mlr[np.isnan(mlr)] = 0
         
         hrrpua_out = mlr*-1000*HoC
@@ -687,6 +692,7 @@ def interpolateBasisCases(mat, qr1, mass1, delta1, nondim_t1, t1, nondimtype):
         ind = np.where(~np.isnan(hogs_out[:, i]))[0][-1]
         nonnan_max = max([nonnan_max, nondim_time_out[ind]])
     inds = np.where(nondim_time_out <= nonnan_max)[0]
+    inds = inds[1:]
     return nondim_time_out[inds], hogs_out[inds, :], qrs_out[inds, :], mlr_out[inds, :], times_out[inds, :]
 
 def plotBasisCases(mat, times, hogs, nondim_t, nondimtype, lw, colors, labelPlot):
@@ -718,7 +724,7 @@ def developRepresentativeCurve(mat, nondimtype='FoBi', plot=False, lw=3, colors=
     
     # Plot basis cases if required
     if plot: plotBasisCases(mat, times, hogs, nondim_t, nondimtype, lw, colors, labelPlot)
-
+    
     # Determine representative HoG curve
     qrs_out = np.nanmean(qrs, axis=1)
     hog_out = np.nanmedian(hogs, axis=1)
@@ -778,10 +784,8 @@ def runSimulation(times, mat, delta0, coneExposure, totalEnergy, fobi_out, hog_o
     mass[0] = delta[0]*density
     energyFraction = np.zeros_like(delta)
     charFraction = np.zeros_like(delta)
-    #print(times)
-    #print("qr\tTg\tht\tBi\tFo\tHRRPUA\tM_old\tM_new\tMLR\tMLRxdt\tdt\tdelta")
     
-    relaxation_factor = 1.0 #0.5 #0.05
+    relaxation_factor = 0.5
     refs = np.zeros_like(delta)
     Fos = np.zeros_like(delta)
     Bios = np.zeros_like(delta)
@@ -791,7 +795,6 @@ def runSimulation(times, mat, delta0, coneExposure, totalEnergy, fobi_out, hog_o
     cone_area = params['cone_area']
     char_conductivity = params['char_conductivity']
     char_density = params['char_density']
-    sig = params['sig']
     d_min = params['d_min']
     
     flame_method = getFlameMethodFromNonDimType(nondimtype)
@@ -834,15 +837,12 @@ def runSimulation(times, mat, delta0, coneExposure, totalEnergy, fobi_out, hog_o
         mlrs[j] = mlr
         
         hrrpuas[j] = mlr*HoC*-1000
-        #energy[j] = energy[j-1]+mlr*-1000*HoC*dt*cone_area
-        #energy[j] = energy[j-1]+(hrrpuas[j]*cone_area)*dt
-        energy[j] = np.trapz(hrrpuas*cone_area, times) ##energy[j-1]+(hrrpuas[j]*cone_area)*dt
-        
-        #print(energy[j], energy2)
+        energy[j] = energy[j-1]+(hrrpuas[j]*cone_area)*dt
+        #energy[j] = np.trapz(hrrpuas*cone_area, times) ##energy[j-1]+(hrrpuas[j]*cone_area)*dt
         
         if mlr > 0: mlr = 0
         mass[j] = mass[j-1] + mlr*dt
-        '''
+        
         if mass[j] < 0:
             mass[j] = 0
         if np.isnan(mass[j]):
@@ -850,12 +850,9 @@ def runSimulation(times, mat, delta0, coneExposure, totalEnergy, fobi_out, hog_o
         hrrpuas[j] = (mass[j-1]-mass[j])/dt * HoC*1000
         if np.isnan(hrrpuas[j]):
             hrrpuas[j] = 0
-        energy[j] = np.trapz(hrrpuas*cone_area, times) ##energy[j-1]+(hrrpuas[j]*cone_area)*dt
         mlrs[j] = (mass[j] - mass[j-1])/dt
-        '''
         
         if energy[j] > totalEnergy: 
-            energy[j] = totalEnergy
             hrrpuas[j] = 0
             mlrs[j] = 0
             mass[j] = mass[j-1]

@@ -46,7 +46,7 @@ def finishSimulationFigure(ymax, exp_tmax, savefigure, closefigure, namespace, f
     plt.grid()
     plt.tick_params(labelsize=fs)
     plt.legend(fontsize=fs) #, bbox_to_anchor=(1.05,0.6))
-    plt.tight_layout()
+    plt.tight_layout(rect=(0, 0, 1, 0.95))
     
     if savefigure: plt.savefig(namespace, dpi=300)
     if closefigure: plt.close()

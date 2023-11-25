@@ -7,30 +7,26 @@ Created on Sat Apr 22 18:18:31 2023
 import matplotlib.pyplot as plt
 import numpy as np
 
-from algorithms import getJHcolors
+from plotting import finishSimulationFigure, getPlotLimits, getJHcolors
 from algorithms import getMaterials, processCaseData
 from algorithms import developRepresentativeCurve
 from algorithms import runSimulation, getTimeAveragedPeak
 from algorithms import plotMaterialExtraction
 
-def getPlotLimits(material):
-    if material == 'FAA_PVC':
-        xlim = 1000
-        ylim = 300
-    if material == 'FAA_PC':
-        ylim = 1000
-        xlim = 1000
-    if material == 'FAA_PMMA':
-        ylim = 1500
-        xlim = 2500
-    if material == 'FAA_HIPS':
-        ylim = 1500
-        xlim = 3000
-    if material == 'FAA_HDPE':
-        ylim = 2500
-        xlim = 3000
-    return xlim, ylim
-
+def sortCases(cases):
+    cases_to_plot = np.array(list(cases.keys()))
+    thicknesses = np.array([cases[c]['delta'] for c in cases_to_plot])
+    coneExposures = np.array([cases[c]['cone'] for c in cases_to_plot])
+    inds = np.argsort(coneExposures)
+    thicknesses = thicknesses[inds]
+    coneExposures = coneExposures[inds]
+    cases_to_plot = cases_to_plot[inds]
+    
+    inds = np.argsort(thicknesses)
+    thicknesses = thicknesses[inds]
+    coneExposures = coneExposures[inds]
+    cases_to_plot = cases_to_plot[inds]
+    return coneExposures, thicknesses, cases_to_plot
 
 if __name__ == "__main__":
     
@@ -83,7 +79,6 @@ if __name__ == "__main__":
     plt.grid()
     plt.tick_params(labelsize=fs)
     plt.legend(fontsize=fs, bbox_to_anchor=(1.05,0.8))
-    #plt.legend(fontsize=fs) #bbox_to_anchor=(1.05,0.1))
     plt.tight_layout()
     plt.savefig('..//figures//time_normalization_' + style + '_' + material + '.png', dpi=300)
     
@@ -95,20 +90,14 @@ if __name__ == "__main__":
     leg_loc = 3
     style = 'md_mf'
     material = 'FAA_HDPE'
-    #material = 'FAA_PC'
     spec_file_dict[material] = processCaseData(spec_file_dict[material])
     mat = spec_file_dict[material]
     
     plt.figure(figsize=(10, 8))
     mat2 = dict(mat)
     mat2['case_basis'] = dict(mat2['cases'])
-    #mat2['case_basis'].pop('case-000')
     fobi_out, hog_out, qr_out, mlr_out, times_out = developRepresentativeCurve(mat2, nondimtype, plot=True, lw=2, labelPlot=False)
     
-    #density, conductivity, specific_heat, HoC, emissivity, nu_char, _, _, _ = getMaterial(material)
-    #cases, case_basis = processCaseData(material, style=style)
-    #case_basis = list(cases.keys())
-    #fobi_out, hog_out, qrs_out, mlr_out = developRepresentativeCurve(material, cases, case_basis, 'FoBi', plot=True)
     plt.loglog(fobi_out, hog_out, '--', linewidth=lw, color='k', label='Median')
     
     
@@ -127,20 +116,12 @@ if __name__ == "__main__":
     plt.ylim(1000, 100000)
     plt.xlabel(r"$\mathrm{FoBi^{*}}$ ($-$)", fontsize=fs)
     plt.ylabel(r'$\Delta H_{g}$ ($\mathrm{kJ/kg}$)', fontsize =fs)
-    #lgd = plt.legend(fontsize=fs, bbox_to_anchor=(1.1, 1.0))
     lgd = plt.legend(fontsize=fs, loc=leg_loc)
-    
-    #plt.arrow(1250, 40000, -700, 0, linewidth=2, color='k', head_width=5000, head_length=100, length_includes_head=True)
-    #plt.arrow(21000, 40000, 18000, 0, linewidth=2, color='k', head_width=5000, head_length=5000, length_includes_head=True)
-    #plt.annotate(r"$\Delta=3\mathrm{mm}$"+"\n"+r"$\dot{q}''_{cone}=25\mathrm{kW/m^{2}}$", xy = (1250, 35000), size=24)
-    #plt.annotate(r"$\Delta=3$"+"\n"+r"$\dot{q}''_{cone}=25$", xy = (1250, 33000), size=24)
-    #plt.annotate('Outlier', xy=(1500,40000))
     
     plt.grid()
     plt.tick_params(labelsize=fs)
     
     plt.tight_layout()
-    #plt.savefig('..//figures//DHg_%s_%s_collapsed.png'%(style, material), dpi=300, bbox_extra_artists=(lgd,), bbox_inches='tight')
     plt.savefig('..//figures//DHg_%s_%s_collapsed.png'%(style, material), dpi=300)
     
     
@@ -150,16 +131,8 @@ if __name__ == "__main__":
     mat2 = dict(mat)
     mat2['case_basis'] = dict(mat2['cases'])
     fobi_out, hog_out, qr_out, mlr_out, times_out = developRepresentativeCurve(mat2, 'Time', plot=True, lw=2)
-    #plt.loglog(np.nanmedian(times_out, axis=1)/60, hog_out, '--', linewidth=lw2, label='Median', color='k')
     plt.loglog(fobi_out/60, hog_out, '--', linewidth=lw2, label='Median', color='k')
     
-    #density, conductivity, specific_heat, HoC, emissivity, nu_char, _, _, _ = getMaterial(material)
-    #cases, case_basis = processCaseData(material, style=style)
-    #case_basis = list(cases.keys())
-    #fobi_out, hog_out, qrs_out, mlr_out = developRepresentativeCurve(material, cases, case_basis, 'FoBi', plot=True, collapse=False)
-    
-    
-    #plt.xlim(1, 3000)
     plt.xlim(1, 30)
     plt.xticks([0.5, 1, 2, 4, 6, 10, 20, 30], ['0.5','1','2','4','6','10','20','30'])
     plt.ylim(1000, 100000)
@@ -169,7 +142,6 @@ if __name__ == "__main__":
     lgd = plt.legend(fontsize=fs2, loc=leg_loc)
     plt.grid()
     plt.tick_params(labelsize=fs2)
-    #plt.legend(fontsize=fs)
     plt.tight_layout()
     plt.savefig('..//figures//DHg_%s_%s_uncollapsed.png'%(style, material), dpi=300)
     
@@ -177,15 +149,14 @@ if __name__ == "__main__":
     
     # Run simulations for all 5 materials
     materials = ['FAA_PC','FAA_PVC', 'FAA_PMMA', 'FAA_HIPS', 'FAA_HDPE']
-    materials = ['FAA_HDPE']
     
-    #caseToPlot = 2 # charring
-    #caseToPlot = 4 # non-charring
-    style = 'md_mf'
-    fs=48
-    lw = 9
-    s = 100
-    exp_num_points = 25
+    # Output parameters
+    (savefigure, closefigure) = (True, True)
+    (style, nondimtype) = ('md_mf', 'FoBi')
+    
+    # Initialize parameters
+    (fs, lw, s, exp_num_points) = (48, 9, 100, 25)
+    (windowSize, percentile) = (60, 90)
     colors = getJHcolors()
     
     # Initialize stats outputs
@@ -202,10 +173,6 @@ if __name__ == "__main__":
         total_energy_per_deltas = [case_basis[c]['totalEnergy']/case_basis[c]['delta'] for c in case_basis]
         total_energy_per_delta_ref = np.mean(total_energy_per_deltas)
         
-        #density, conductivity, specific_heat, HoC, emissivity, nu_char, _, _, _ = getMaterial(material)
-        #cases, case_basis = processCaseData(material, style=style)
-        #total_energy_per_deltas = [cases[c]['totalEnergy']/cases[c]['delta'] for c in case_basis]
-        #total_energy_per_delta_ref = np.mean(total_energy_per_deltas)
         fobi_out, fobi_hog_out, qr_out, fobi_mlr_out, times_out = developRepresentativeCurve(mat, nondimtype)
         xlim, ylim = getPlotLimits(material)
         times = np.linspace(0, xlim*2, 10001)
@@ -214,30 +181,13 @@ if __name__ == "__main__":
         thicknesses = np.array([cases[c]['delta'] for c in cases_to_plot])
         coneExposures = np.array([cases[c]['cone'] for c in cases_to_plot])
         
-        inds = np.argsort(coneExposures)
-        thicknesses = thicknesses[inds]
-        coneExposures = coneExposures[inds]
-        cases_to_plot = cases_to_plot[inds]
+        coneExposures, thicknesses, cases_to_plot = sortCases(cases)
         
-        inds = np.argsort(thicknesses)
-        thicknesses = thicknesses[inds]
-        coneExposures = coneExposures[inds]
-        cases_to_plot = cases_to_plot[inds]
+        (delta_old, exp_tmax, ymax, j, fig) = (-1, 0, 0, 0, False)
         
-        
-        delta_old = -1
-        exp_tmax = 0
-        ymax = 0
-        j = 0
-        fig = False
-        m = material.replace('2','')
         for i, c in enumerate(cases_to_plot): #[cases_to_plot[caseToPlot]]):
-            delta0 = cases[c]['delta']
-            coneExposure = cases[c]['cone']
+            (delta0, coneExposure, tign) = (cases[c]['delta'], cases[c]['cone'], cases[c]['tign'])
             totalEnergy = total_energy_per_delta_ref*delta0
-            
-            hog_out = fobi_hog_out
-            #print(delta0, coneExposure, totalEnergy)
             times, hrrpuas, totalEnergy2 = runSimulation(times, mat, delta0, coneExposure, totalEnergy, fobi_out, fobi_hog_out, nondimtype=nondimtype)
             
             mod_peak = getTimeAveragedPeak(times, hrrpuas, 60)
@@ -248,36 +198,18 @@ if __name__ == "__main__":
             label = r'%0.0f $\mathrm{kW/m^{2}}$'%(coneExposure)
             
             if delta0 != delta_old:
-                if fig is not False:
-                    plt.xlabel("Time (min)", fontsize=fs)
-                    plt.ylabel(r'HRRPUA ($\mathrm{kW/m^{2}}$)', fontsize=fs)
-                    plt.ylim(0, np.ceil(1.1*ymax/100)*100+20)
-                    plt.xlim(0, np.ceil(exp_tmax/60))
-                    plt.grid()
-                    plt.tick_params(labelsize=fs)
-                    plt.legend(fontsize=fs) #, bbox_to_anchor=(1.05,0.6))
-                    plt.tight_layout()
-                    plt.savefig('..//figures//simulation_' + style + '_' + m + '_%dmm.png'%(delta_old*1e3), dpi=300)
-                    plt.close()
+                namespace = '..//figures//simulation_' + style + '_' + material + '_%dmm.png'%(delta_old*1e3)
+                if fig is not False: finishSimulationFigure(ymax, exp_tmax*1.3, savefigure, closefigure, namespace, fs)
                 fig = plt.figure(figsize=(14,12))
-                delta_old = delta0
-                exp_tmax = 0
-                ymax = 0
-                j = 0
+                (exp_tmax, ymax, j, delta_old) = (0, 0, 0, delta0)
             
-            if (m == 'FAA_PC' or m == 'FAA_PVC') and delta0*1e3 < 4:
+            if (material == 'FAA_PC' or material == 'FAA_PVC') and delta0*1e3 < 4:
                 exp_int = 5
             else:
                 exp_int = int(np.ceil(cases[c]['times'].shape[0]/exp_num_points))
-            #plt.scatter(cases[c]['times'][::exp_int]/60,cases[c]['HRRs'][::exp_int], s=s, linewidth=lw, color=colors[j])
-            #plt.plot(cases[c]['times']/60,cases[c]['HRRs'], '--', linewidth=lw, color=colors[j])
-            
-            
-            tmp_out = np.interp(times, times_out[:,0], fobi_mlr_out[:,0]*-1e3*HoC)
-            
-            plt.plot((times+cases[c]['tign'])/60, hrrpuas, '-.', linewidth=lw, label='Mod', color=colors[j])
-            plt.plot((times_out+cases[c]['tign'])/60,fobi_mlr_out*-1e3*HoC, '--', linewidth=lw, color=colors[j+1], label='Exp')
-            
+            plt.scatter(cases[c]['times'][::exp_int]/60,cases[c]['HRRs'][::exp_int], s=s, linewidth=lw, color=colors[j])
+            #plt.plot(cases[c]['times']/60,cases[c]['HRRs'], '--', label=label, linewidth=lw, color=colors[j])
+            plt.plot((times+tign)/60, hrrpuas, '-', label=label, linewidth=lw, color=colors[j])
             
             j = j+1
             exp_tmax = max([exp_tmax, cases[c]['times'].max()])
@@ -286,17 +218,9 @@ if __name__ == "__main__":
             exp_points.append(exp_peak)
             mod_points.append(mod_peak)
             ms.append(material)
-            
-        plt.xlabel("Time (min)", fontsize=fs)
-        plt.ylabel(r"$\dot{Q}''$ ($\mathrm{kW/m^{2}}$)", fontsize=fs)
-        plt.ylim(0, np.ceil(1.1*ymax/100)*100+20)
-        plt.xlim(0, np.ceil(exp_tmax/60))
-        plt.grid()
-        plt.tick_params(labelsize=fs)
-        plt.legend(fontsize=fs)#, bbox_to_anchor=(1.05,0.6))
-        plt.tight_layout()
-        plt.savefig('..//figures//simulation_' + style + '_' + m + '_%dmm.png'%(delta_old*1e3), dpi=300)
-        #plt.close()
+        
+        namespace = '..//figures//simulation_' + style + '_' + material + '_%dmm.png'%(delta_old*1e3)
+        finishSimulationFigure(ymax, exp_tmax*1.3, savefigure, closefigure, namespace, fs)
     
     (axmin, axmax, loglog) = (0.0, 2500, False)
     split = ms
@@ -308,5 +232,3 @@ if __name__ == "__main__":
     fig, sigma_m, delta = plotMaterialExtraction(exp_points, mod_points, split, label, diff=diff2, axmin=axmin, axmax=axmax, loglog=loglog, labelName=labelNames)
     plt.savefig('..//figures//FAA_materials_stats.png', dpi=300)
     
-    #plt.figure()
-    #plt.plot(times, tmp_out-hrrpuas)
