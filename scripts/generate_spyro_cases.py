@@ -11,8 +11,7 @@ import os, shutil, subprocess
 
 from plotting import getJHcolors, getPlotLimits
 from algorithms import getMaterials, processCaseData
-from algorithms import developRepresentativeCurve, getFixedModelParams
-from algorithms import runSimulation
+from algorithms import getFixedModelParams
 from algorithms import calculateUncertainty, plotMaterialExtraction, calculateUncertaintyBounds
 from algorithms import getTimeAveragedPeak
 from algorithms import getTimeAveragedEnergy, getTimeAveraged_timeToEnergy
@@ -38,7 +37,8 @@ def findFds():
 def buildFdsFile(chid, cone_hf_ref, cone_d_ref, emissivity, conductivity, density, 
                  specific_heat, Tign, time, hrrpua, tend, deltas, fluxes, front_h,
                  case_tigns=False, ignitionMode='Temperature', outputTemperature=False,
-                 calculateDevcDt=True, devc_dt=1.):
+                 calculateDevcDt=True, devc_dt=1.,
+                 qflame_method='Froude', qflame_fixed=25):
     ''' Generate a solid phase only FDS input file representing cone
     experimens at different exposures given a reference curve and
     material properties. The configuration can support up to 9
@@ -60,7 +60,7 @@ def buildFdsFile(chid, cone_hf_ref, cone_d_ref, emissivity, conductivity, densit
            fiber insulation behind them.
     '''
     hrrpua_ref = getRepresentativeHrrpua(hrrpua, time)
-    qref = estimateExposureFlux(cone_hf_ref, hrrpua_ref)
+    qref = estimateExposureFlux(cone_hf_ref, hrrpua_ref, qflame_method, qflame_fixed)
     
     tempOutput = '.TRUE.' if outputTemperature else '.FALSE.'
     DT_DEVC = devc_dt
@@ -88,7 +88,8 @@ def buildFdsFile(chid, cone_hf_ref, cone_d_ref, emissivity, conductivity, densit
         prevTime = time[i]
     y = -0.05
     for i, hf in enumerate(fluxes):
-        hf_ign = estimateHrrpua(cone_hf_ref, hrrpua_ref, hf)
+        hf_ign = estimateHrrpua(cone_hf_ref, hrrpua_ref, hf, 'Froude', qflame_fixed)
+        
         delta = deltas[i]
         if i%3 == 0: y = y + 0.1
         XYZ = [((i % 3))*0.1+0.05, y, 0.0]
@@ -135,6 +136,7 @@ def buildFdsFile(chid, cone_hf_ref, cone_d_ref, emissivity, conductivity, densit
         
                         
     return txt
+
 
 def runModel(outdir, outfile, mpiProcesses, fdsdir, fdscmd, printLiveOutput=False):
     ''' This function will run fds with an input file
@@ -209,7 +211,7 @@ if __name__ == "__main__":
     nondimtype = 'FoBi_simple_fixed_d'
     figoutdir = "figures"
     runSimulations = False
-    plotResults = False
+    plotResults = True
     lineStyles = ['--','-.',':']
     
     if figoutdir is not None:
@@ -275,12 +277,17 @@ if __name__ == "__main__":
             if figoutdir is not None:
                 fig = plt.figure(figsize=(24,18))
                 (fs, lw, s, exp_num_points) = (24, 6, 100, 25)
-                exp_int = 5
                 case_names = list(cases.keys())
                 for i in range(0, len(case_names)):
                     c = case_names[i]
                     namespace = '%02d-%03d'%(fluxes[i], deltas[i]*1e3)
                     label = r'%s'%(namespace) #'$\mathrm{kW/m^{2}}$'%(coneExposure)
+                    delta0 = cases[c]['delta']
+                    if (material == 'FAA_PC' or material == 'FAA_PVC') and delta0*1e3 < 4:
+                        exp_int = 5
+                    else:
+                        exp_int = int(np.ceil(cases[c]['times'].shape[0]/exp_num_points))
+                    
                     plt.scatter(cases[c]['times'][::exp_int]/60,cases[c]['HRRs'][::exp_int], s=s, label=label, linewidth=lw, color=colors[i])
                     times = data['Time']
                     hrrpuas = data['"HRRPUA-'+namespace+'"']
@@ -293,6 +300,9 @@ if __name__ == "__main__":
             plt.tick_params(labelsize=fs)
             plt.legend(fontsize=fs, bbox_to_anchor=(1.05,0.6))
             plt.tight_layout(rect=(0, 0, 1, 0.95))
+            
+            plt.savefig("..//figures//fdsout_%s.png"%(material), dpi=300)
+            
             
             #if savefigure: plt.savefig(namespace, dpi=300)
             #if closefigure: plt.close()

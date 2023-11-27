@@ -13,7 +13,7 @@ import glob
 
 from plotting import getJHcolors, getNewColors
 
-def estimateExposureFlux(coneExposure, representativeHRRPUA):
+def estimateExposureFlux(coneExposure, representativeHRRPUA, method, fixed_qflame=25):
     ''' Estimates the exposure flux at a cone exposure by using
     an empirical estimate of the flame heat flux. The empirical
     estimate of the flame heat flux was developed by running
@@ -22,8 +22,9 @@ def estimateExposureFlux(coneExposure, representativeHRRPUA):
     surface heat transfer coefficient of 15 W/m2-K and a fixed
     gas phase radiative fraction of 0.35.
     '''
-    exposureFlux = 55*(representativeHRRPUA**0.065) - 50 + coneExposure
-    return exposureFlux
+    
+    qflame = calculateFlameHeatFlux(representativeHRRPUA, method, fixed_qflame=fixed_qflame)
+    return qflame + coneExposure
 
 def getRepresentativeHrrpua(HRRPUA, time, factor=0.5):
     ''' This function calculates a representative HRRPUA for use
@@ -45,24 +46,24 @@ def getRepresentativeHrrpua(HRRPUA, time, factor=0.5):
     representativeHRRPUA = hrrpua_i[hrrpua_i > HRRPUA.max()*factor].mean()
     return representativeHRRPUA
 
-def estimateHrrpua(cone_ref, hrrpua_ref, cone_flux):
+def estimateHrrpua(cone_ref, hrrpua_ref, cone_flux, method, fixed_qflame=25):
     ''' Calculate the scaled heat flux based on the reference hrrpua,
     reference cone exposure, and scaled cone exposure. An iterative
     process is used since the flame heat flux depends on the scaled
     hrrpua.
     '''
     
-    exposureFlux = estimateExposureFlux(cone_ref, hrrpua_ref)
+    exposureFlux = estimateExposureFlux(cone_ref, hrrpua_ref, method, fixed_qflame)
     scaledFlux = exposureFlux - cone_ref + cone_flux
     
     prevFlux = scaledFlux
     scaled_hrrpua = (scaledFlux/exposureFlux)*hrrpua_ref
-    scaledFlux = estimateExposureFlux(cone_flux, scaled_hrrpua)
+    scaledFlux = estimateExposureFlux(cone_flux, scaled_hrrpua, method, fixed_qflame)
     
     while abs(prevFlux - scaledFlux) > 0.01:
         prevFlux = scaledFlux
         scaled_hrrpua = (scaledFlux/exposureFlux)*hrrpua_ref
-        scaledFlux = estimateExposureFlux(cone_flux, scaled_hrrpua)
+        scaledFlux = estimateExposureFlux(cone_flux, scaled_hrrpua, method, fixed_qflame)
     return scaledFlux
 
 def cleanTrailingTimes(time, value):
@@ -560,7 +561,7 @@ def calculateFlameHeatFlux(hrrpua, method, fixed_qflame=25):
         
         qflame = sig*(Tf**4)*(1-np.exp(kf*lm))
     elif method == 'Empirical':
-        qflame = estimateExposureFlux(0, hrrpua)
+        qflame = 55*(hrrpua**0.065) - 50
     elif method == 'Fixed':
         qflame = np.zeros_like(hrrpua) + fixed_qflame
     return qflame
