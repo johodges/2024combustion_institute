@@ -1,4 +1,4 @@
-&HEAD CHID='JH_Phenolic Resin Fiberglass Composite', /
+&HEAD CHID='JH_Phenolic_Resin_Fiberglass_Composite', /
 &TIME DT=1., T_END=2977.6 /
 &DUMP DT_CTRL=1.0, DT_DEVC=1.0, DT_HRR=1.0, SIG_FIGS=4, SIG_FIGS_EXP=2, /
 &MISC SOLID_PHASE_ONLY=.TRUE., TMPA=27., /
