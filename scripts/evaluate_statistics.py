@@ -25,7 +25,7 @@ if __name__ == "__main__":
     
     # Compare normalization schemes on model predictions
     nondimtype = 'FoBi'
-    #nondimtype = 'FoBi_simple_fixed_d'
+    nondimtype = 'FoBi_simple_fixed_d'
     
     styles = ['md_mf'] # ['md_lmhf','md_lf','md_mf','md_hf','lmhd_lmhf']
     makeHgPlots = [True] #[True, False, False, False, False]
@@ -70,6 +70,7 @@ if __name__ == "__main__":
             
             fobi_out, fobi_hog_out, qr_out, fobi_mlr_out, _ = developRepresentativeCurve(mat, nondimtype=nondimtype)
             
+            basis_summary = [[case_basis[c]['delta'], case_basis[c]['cone']] for c in case_basis]
             Ts = params['Tinit']
             for i, c in enumerate(list(cases.keys())):
                 delta0 = cases[c]['delta']
@@ -101,7 +102,7 @@ if __name__ == "__main__":
                 output_statistics[material][c]['coneExposure'] = coneExposure
                 output_statistics[material][c]['Qpeak_60s_exp'] = exp_peak
                 output_statistics[material][c]['Qpeak_60s_mod'] = mod_peak
-                output_statistics[material][c]['basis'] = c in case_basis
+                output_statistics[material][c]['basis'] = [delta0, coneExposure] in basis_summary
         
         
         metric_outputs = dict()
@@ -128,17 +129,20 @@ if __name__ == "__main__":
             mc = []
             c = []
             mask = []
+            bases = []
             for material in materials:
                 matClass = spec_file_dict[material]['materialClass']
                 for case in list(output_statistics[material].keys()):
                     if output_statistics[material][case]['Qpeak_60s_exp'] > 100:
                         mask.append(True)
+                        bases.append(output_statistics[material][case]['basis'])
                         exp_points.append(output_statistics[material][case][exp_metric])
                         mod_points.append(output_statistics[material][case][mod_metric])
                         ddd.append(output_statistics[material][case]['delta'])
                         m.append(material)
                         mc.append(matClass)
                         c.append(output_statistics[material][case]['coneExposure'])
+            mask = [x is False for x in bases]
             exp_points = np.array(exp_points)
             mod_points = np.array(mod_points)
             f = np.array(f)
@@ -221,6 +225,8 @@ if __name__ == "__main__":
                 for key in list(delta.keys()):
                     print('%s & %0.2f & %0.2f'%(key, delta[key], sigma_m[key]))
                 plt.savefig('..//figures//'+fname, dpi=300)
+            detailed_output = pd.DataFrame(np.array([mc, m, ddd, c, exp_points, mod_points]).T, columns=['Class','Material','Thickness','Exposure','Exp','Mod'])
+            detailed_output.to_csv('output_%s_%s.csv'%(metric, nondimtype))
         totalUncertaintyStatistics[style] = metric_outputs
     
     with pd.ExcelWriter('..//figures//%s_metrics_output.xlsx'%(nondimtype)) as writer:
