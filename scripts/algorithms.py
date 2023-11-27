@@ -953,10 +953,12 @@ def plotMaterialExtraction(x, y, f, label, diff=None, axmin=None, axmax=None, lo
     if mask is not None:
         xx = x[mask]
         yy = y[mask]
+        ff = f[mask]
     else:
         xx = x
         yy = y
-    delta, sigma_m, sigma_e, num_points, points = calculateUncertaintyBounds(xx, yy, f, split=False)
+        ff = f
+    delta, sigma_m, sigma_e, num_points, points = calculateUncertaintyBounds(xx, yy, ff, split=False)
     
     if axmin is not None:
         axmin2 = axmin
@@ -987,7 +989,7 @@ def plotMaterialExtraction(x, y, f, label, diff=None, axmin=None, axmax=None, lo
     if diff is not None:
         cases = np.array(list(set(diff)))
         cases.sort()
-        for j in range(0, len(f)):
+        for j in range(0, len(ff)):
             caseInd = np.where(cases == diff[j])[0][0]
             #c = 0 if diff[j] > 0 else 1
             ax.scatter(x[j], y[j], marker=markers[caseInd], s=100, facecolors='none', edgecolors=colors2[caseInd], linewidths=mew)
