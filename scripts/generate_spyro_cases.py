@@ -205,7 +205,7 @@ if __name__ == "__main__":
     spec_file_dict = getMaterials()
     materials = list(spec_file_dict.keys())
     
-    materials = ['FAA_PMMA']
+    materials = ['FAA_PMMA', 'FAA_HDPE', 'FAA_HIPS', 'FAA_PC', 'FAA_PVC']
     nondimtype = 'FoBi_simple_fixed_d'
     figoutdir = "figures"
     runSimulations = False
@@ -231,11 +231,6 @@ if __name__ == "__main__":
         (cases, case_basis, data) = (mat['cases'], mat['case_basis'], mat['data'])
         matClass = mat['materialClass']
         
-        sim_times = np.linspace(0, 20000, 20001)
-        
-        total_energy_per_deltas = [case_basis[c]['totalEnergy']/case_basis[c]['delta'] for c in case_basis]
-        total_energy_per_delta_ref = np.mean(total_energy_per_deltas)
-        
         totalEnergyMax = np.nanmax([case_basis[c]['totalEnergy'] for c in case_basis])
         
         if totalEnergyMax < 100:
@@ -252,7 +247,7 @@ if __name__ == "__main__":
         
         chid = material
         basis_summary = [[case_basis[c]['delta'], case_basis[c]['cone']] for c in case_basis]
-        tend = np.nanmax([cases[c]['times_trimmed'].max() for c in cases]*2)
+        tend = np.nanmax([cases[c]['times_trimmed'].max()+cases[c]['tign'] for c in cases]*2)
         
         deltas = [cases[c]['delta'] for c in cases]
         fluxes = [cases[c]['cone'] for c in cases]
@@ -279,24 +274,24 @@ if __name__ == "__main__":
             # Plot results
             if figoutdir is not None:
                 fig = plt.figure(figsize=(24,18))
-                (fs, lw, s, exp_num_points) = (48, 9, 100, 25)
+                (fs, lw, s, exp_num_points) = (24, 6, 100, 25)
                 exp_int = 5
                 case_names = list(cases.keys())
                 for i in range(0, len(case_names)):
                     c = case_names[i]
                     namespace = '%02d-%03d'%(fluxes[i], deltas[i]*1e3)
-                    label = r'%s Exp'%(namespace) #'$\mathrm{kW/m^{2}}$'%(coneExposure)
+                    label = r'%s'%(namespace) #'$\mathrm{kW/m^{2}}$'%(coneExposure)
                     plt.scatter(cases[c]['times'][::exp_int]/60,cases[c]['HRRs'][::exp_int], s=s, label=label, linewidth=lw, color=colors[i])
                     times = data['Time']
-                    hrrpuas = data['HRRPUA-'+namespace]
-                    plt.plot(times/60, hrrpuas, lineStyles[1], linewidth=lw, label='FoBi*', color=colors[i])
+                    hrrpuas = data['"HRRPUA-'+namespace+'"']
+                    plt.plot(times/60, hrrpuas, lineStyles[1], linewidth=lw, color=colors[i])
             plt.xlabel("Time (min)", fontsize=fs)
             plt.ylabel(r'HRRPUA ($\mathrm{kW/m^{2}}$)', fontsize=fs)
             #plt.ylim(0, np.ceil(1.1*ymax/100)*100)
             #plt.xlim(0, np.ceil(exp_tmax/60))
             plt.grid()
             plt.tick_params(labelsize=fs)
-            plt.legend(fontsize=fs) #, bbox_to_anchor=(1.05,0.6))
+            plt.legend(fontsize=fs, bbox_to_anchor=(1.05,0.6))
             plt.tight_layout(rect=(0, 0, 1, 0.95))
             
             #if savefigure: plt.savefig(namespace, dpi=300)
