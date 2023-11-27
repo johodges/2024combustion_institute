@@ -100,7 +100,7 @@ def buildFdsFile(chid, cone_hf_ref, cone_d_ref, emissivity, conductivity, densit
         txt = txt+"HEAT_TRANSFER_COEFFICIENT=%0.4f, HEAT_TRANSFER_COEFFICIENT_BACK=10., "%(front_h)
         txt = txt+"HRRPUA=1., IGNITION_TEMPERATURE=%0.1f, MATL_ID(1:2,1)='SAMPLE','BACKING', "%(Tign)
         txt = txt+"RAMP_EF='IGNITION_RAMP-%s', RAMP_Q='CONE-RAMP', "%(namespace)
-        txt = txt+"REFERENCE_HEAT_FLUX=%0.4f, REFERENCE_HEAT_FLUX_TIME_INTERVAL=1., REFERENCE_CONE_THICKNESS=%0.8f"%(qref, cone_d_ref)
+        txt = txt+"REFERENCE_HEAT_FLUX=%0.4f, REFERENCE_HEAT_FLUX_TIME_INTERVAL=1., REFERENCE_CONE_THICKNESS=%0.8f, "%(qref, cone_d_ref)
         txt = txt+'THICKNESS(1:2)=%0.8f,%0.8f, /\n'%(delta, 0.0254/2)
         
         if ignitionMode == 'Temperature':
@@ -208,7 +208,8 @@ if __name__ == "__main__":
     materials = ['FAA_PMMA']
     nondimtype = 'FoBi_simple_fixed_d'
     figoutdir = "figures"
-    runSimulations = True
+    runSimulations = False
+    plotResults = False
     lineStyles = ['--','-.',':']
     
     if figoutdir is not None:
@@ -257,7 +258,9 @@ if __name__ == "__main__":
         fluxes = [cases[c]['cone'] for c in cases]
         tigns = [cases[c]['tign'] for c in cases]
         
-        workingDir = fileDir + os.sep + material + os.sep
+        workingDir = fileDir + os.sep +'..' + os.sep + 'input_files' + os.sep+ material + os.sep
+        
+        if os.path.exists(workingDir) is False: os.mkdir(workingDir)
         # Calculate times to ignition
         
         txt = buildFdsFile(chid, cone_hf_ref, cone_d_ref, emissivity, conductivity, density, 
@@ -270,31 +273,32 @@ if __name__ == "__main__":
         
         if runSimulations:
             runModel(workingDir, chid+".fds", 1, fdsdir, fdscmd, printLiveOutput=False)
-        data = load_csv(workingDir, chid)
-    
-        # Plot results
-        if figoutdir is not None:
-            fig = plt.figure(figsize=(24,18))
-            (fs, lw, s, exp_num_points) = (48, 9, 100, 25)
-            exp_int = 5
-            case_names = list(cases.keys())
-            for i in range(0, len(case_names)):
-                c = case_names[i]
-                namespace = '%02d-%03d'%(fluxes[i], deltas[i]*1e3)
-                label = r'%s Exp'%(namespace) #'$\mathrm{kW/m^{2}}$'%(coneExposure)
-                plt.scatter(cases[c]['times'][::exp_int]/60,cases[c]['HRRs'][::exp_int], s=s, label=label, linewidth=lw, color=colors[i])
-                times = data['Time']
-                hrrpuas = data['HRRPUA-'+namespace]
-                plt.plot(times/60, hrrpuas, lineStyles[1], linewidth=lw, label='FoBi*', color=colors[i])
-        plt.xlabel("Time (min)", fontsize=fs)
-        plt.ylabel(r'HRRPUA ($\mathrm{kW/m^{2}}$)', fontsize=fs)
-        #plt.ylim(0, np.ceil(1.1*ymax/100)*100)
-        #plt.xlim(0, np.ceil(exp_tmax/60))
-        plt.grid()
-        plt.tick_params(labelsize=fs)
-        plt.legend(fontsize=fs) #, bbox_to_anchor=(1.05,0.6))
-        plt.tight_layout(rect=(0, 0, 1, 0.95))
         
-        #if savefigure: plt.savefig(namespace, dpi=300)
-        #if closefigure: plt.close()
+        if plotResults:
+            data = load_csv(workingDir, chid)
+            # Plot results
+            if figoutdir is not None:
+                fig = plt.figure(figsize=(24,18))
+                (fs, lw, s, exp_num_points) = (48, 9, 100, 25)
+                exp_int = 5
+                case_names = list(cases.keys())
+                for i in range(0, len(case_names)):
+                    c = case_names[i]
+                    namespace = '%02d-%03d'%(fluxes[i], deltas[i]*1e3)
+                    label = r'%s Exp'%(namespace) #'$\mathrm{kW/m^{2}}$'%(coneExposure)
+                    plt.scatter(cases[c]['times'][::exp_int]/60,cases[c]['HRRs'][::exp_int], s=s, label=label, linewidth=lw, color=colors[i])
+                    times = data['Time']
+                    hrrpuas = data['HRRPUA-'+namespace]
+                    plt.plot(times/60, hrrpuas, lineStyles[1], linewidth=lw, label='FoBi*', color=colors[i])
+            plt.xlabel("Time (min)", fontsize=fs)
+            plt.ylabel(r'HRRPUA ($\mathrm{kW/m^{2}}$)', fontsize=fs)
+            #plt.ylim(0, np.ceil(1.1*ymax/100)*100)
+            #plt.xlim(0, np.ceil(exp_tmax/60))
+            plt.grid()
+            plt.tick_params(labelsize=fs)
+            plt.legend(fontsize=fs) #, bbox_to_anchor=(1.05,0.6))
+            plt.tight_layout(rect=(0, 0, 1, 0.95))
+            
+            #if savefigure: plt.savefig(namespace, dpi=300)
+            #if closefigure: plt.close()
             
