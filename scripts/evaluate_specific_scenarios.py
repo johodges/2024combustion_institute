@@ -37,11 +37,12 @@ if __name__ == "__main__":
     
     materials = ['FSRI_Vinyl_Plank_Flooring']
     materials = ['FAA_PC','FAA_PVC', 'FAA_PMMA', 'FAA_HIPS', 'FAA_HDPE']
-    materials =['FSRI_Mineral_Wool_Insulation']
+    #materials =['FSRI_Mineral_Wool_Insulation']
+    materials = ['FSRI_Black_PMMA']
     
     # Output parameters
     (savefigure, closefigure) = (False, False)
-    (style, nondimtype) = ('md_mf', 'FoBi')
+    (style, nondimtype) = ('md_mf', 'FoBi_simple_fixed_d')
     
     # Initialize parameters
     (fs, lw, s, exp_num_points) = (48, 9, 100, 25)

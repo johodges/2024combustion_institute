@@ -153,6 +153,7 @@ if __name__ == "__main__":
     # Output parameters
     (savefigure, closefigure) = (True, True)
     (style, nondimtype) = ('md_mf', 'FoBi')
+    (style, nondimtype) = ('md_mf', 'FoBi_simple_fixed_d')
     
     # Initialize parameters
     (fs, lw, s, exp_num_points) = (48, 9, 100, 25)

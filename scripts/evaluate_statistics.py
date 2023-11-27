@@ -25,6 +25,7 @@ if __name__ == "__main__":
     
     # Compare normalization schemes on model predictions
     nondimtype = 'FoBi'
+    #nondimtype = 'FoBi_simple_fixed_d'
     
     styles = ['md_mf'] # ['md_lmhf','md_lf','md_mf','md_hf','lmhd_lmhf']
     makeHgPlots = [True] #[True, False, False, False, False]
@@ -56,7 +57,7 @@ if __name__ == "__main__":
             (cases, case_basis, data) = (mat['cases'], mat['case_basis'], mat['data'])
             matClass = mat['materialClass']
             
-            sim_times = np.linspace(0, 10000, 10001)
+            sim_times = np.linspace(0, 20000, 20001)
             
             total_energy_per_deltas = [case_basis[c]['totalEnergy']/case_basis[c]['delta'] for c in case_basis]
             total_energy_per_delta_ref = np.mean(total_energy_per_deltas)
