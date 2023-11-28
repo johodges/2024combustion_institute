@@ -7,11 +7,12 @@ Created on Sat Apr 22 18:18:31 2023
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import os
 
 from plotting import getJHcolors, getPlotLimits
-from algorithms import getMaterials, processCaseData
+from algorithms import getMaterials, processCaseData, sortCases
 from algorithms import developRepresentativeCurve, getFixedModelParams
-from algorithms import runSimulation
+from algorithms import runSimulation, buildFdsFile, findFds, runModel, load_csv
 from algorithms import calculateUncertainty, plotMaterialExtraction, calculateUncertaintyBounds
 from algorithms import getTimeAveragedPeak
 from algorithms import getTimeAveragedEnergy, getTimeAveraged_timeToEnergy
@@ -30,14 +31,22 @@ if __name__ == "__main__":
     styles = ['md_mf'] # ['md_lmhf','md_lf','md_mf','md_hf','lmhd_lmhf']
     makeHgPlots = [True] #[True, False, False, False, False]
     
+    nondimtype = 'FDS'
+    styles = ['FDS']
+    
     spec_file_dict = getMaterials()
     materials = list(spec_file_dict.keys())
+    
+    fdsdir, fdscmd = findFds()
+    fileDir = os.path.dirname(os.path.abspath(__file__))
     
     #materials =['FSRI_Memory_Foam_Carpet_Pad']
     
     # Initialize variables
     fs=16
     lw = 3
+    windowSize = 60
+    percentiles = [90]
     colors = getJHcolors()
     totalUncertaintyStatistics = dict()
     for j in range(0, len(styles)):
@@ -57,53 +66,115 @@ if __name__ == "__main__":
             (cases, case_basis, data) = (mat['cases'], mat['case_basis'], mat['data'])
             matClass = mat['materialClass']
             
-            sim_times = np.linspace(0, 20000, 20001)
-            
-            total_energy_per_deltas = [case_basis[c]['totalEnergy']/case_basis[c]['delta'] for c in case_basis]
-            total_energy_per_delta_ref = np.mean(total_energy_per_deltas)
-            
             totalEnergyMax = np.nanmax([case_basis[c]['totalEnergy'] for c in case_basis])
             
             if totalEnergyMax < 100:
                 print("Total energy for %s is %0.1f < 100, skipping"%(material, totalEnergyMax))
                 continue
             
-            fobi_out, fobi_hog_out, qr_out, fobi_mlr_out, _ = developRepresentativeCurve(mat, nondimtype=nondimtype)
             
-            basis_summary = [[case_basis[c]['delta'], case_basis[c]['cone']] for c in case_basis]
-            Ts = params['Tinit']
-            for i, c in enumerate(list(cases.keys())):
-                delta0 = cases[c]['delta']
-                coneExposure = cases[c]['cone']
-                totalEnergy = total_energy_per_delta_ref*delta0
+            if style != 'FDS':
+                sim_times = np.linspace(0, 20000, 20001)
                 
-                if totalEnergy < 100:
-                    continue
+                total_energy_per_deltas = [case_basis[c]['totalEnergy']/case_basis[c]['delta'] for c in case_basis]
+                total_energy_per_delta_ref = np.mean(total_energy_per_deltas)
                 
-                times, hrrpuas, totalEnergy2 = runSimulation(sim_times, mat, delta0, coneExposure, totalEnergy, fobi_out, fobi_hog_out, nondimtype=nondimtype)
+                fobi_out, fobi_hog_out, qr_out, fobi_mlr_out, _ = developRepresentativeCurve(mat, nondimtype=nondimtype)
                 
-                if totalEnergy2 > totalEnergy:
-                    print("Warning %s case %s more energy released than implied by basis and thickness"%(material, c))
-                
-                windowSize = 60
-                mod_peak = getTimeAveragedPeak(times, hrrpuas, windowSize)
-                exp_peak = getTimeAveragedPeak(cases[c]['times'],cases[c]['HRRs'], windowSize)
-                
-                output_statistics[material][c] = dict()
-                for percentile in [90]:
-                    energyThreshold, exp_t = getTimeAveragedEnergy(cases[c]['times']-cases[c]['tign'],cases[c]['HRRs'], windowSize, percentile)
-                    mod_t, timeAverage = getTimeAveraged_timeToEnergy(times, hrrpuas, windowSize, energyThreshold)
+                basis_summary = [[case_basis[c]['delta'], case_basis[c]['cone']] for c in case_basis]
+                Ts = params['Tinit']
+                reference_time, reference_hrrpua, cone_hf_ref = [case_basis[c]['times_trimmed'] for c in case_basis][0], [case_basis[c]['hrrs_trimmed'] for c in case_basis][0], [case_basis[c]['cone'] for c in case_basis][0]
+                for i, c in enumerate(list(cases.keys())):
+                    delta0 = cases[c]['delta']
+                    coneExposure = cases[c]['cone']
+                    totalEnergy = total_energy_per_delta_ref*delta0
                     
-                    output_statistics[material][c]['%0.0f_exp'%(percentile)] = exp_t
-                    output_statistics[material][c]['%0.0f_mod'%(percentile)] = mod_t
-                print('%s\t%s\t%0.1f\t%0.1f\t%0.1f\t%0.1f'%(material, c, exp_peak, mod_peak, exp_t, mod_t))
+                    if totalEnergy < 100:
+                        continue
+                    
+                    times, hrrpuas, totalEnergy2 = runSimulation(sim_times, mat, delta0, coneExposure, totalEnergy, fobi_out, fobi_hog_out, reference_hrrpua, reference_time, cone_hf_ref, nondimtype=nondimtype)
+                    
+                    if totalEnergy2 > totalEnergy:
+                        print("Warning %s case %s more energy released than implied by basis and thickness"%(material, c))
+                    
+                    mod_peak = getTimeAveragedPeak(times, hrrpuas, windowSize)
+                    exp_peak = getTimeAveragedPeak(cases[c]['times'],cases[c]['HRRs'], windowSize)
+                    
+                    output_statistics[material][c] = dict()
+                    for percentile in percentiles:
+                        energyThreshold, exp_t = getTimeAveragedEnergy(cases[c]['times']-cases[c]['tign'],cases[c]['HRRs'], windowSize, percentile)
+                        mod_t, timeAverage = getTimeAveraged_timeToEnergy(times, hrrpuas, windowSize, energyThreshold)
+                        
+                        output_statistics[material][c]['%0.0f_exp'%(percentile)] = exp_t
+                        output_statistics[material][c]['%0.0f_mod'%(percentile)] = mod_t
+                    print('%s\t%s\t%0.1f\t%0.1f\t%0.1f\t%0.1f'%(material, c, exp_peak, mod_peak, exp_t, mod_t))
+                    
+                    output_statistics[material][c]['delta'] = delta0
+                    output_statistics[material][c]['coneExposure'] = coneExposure
+                    output_statistics[material][c]['Qpeak_60s_exp'] = exp_peak
+                    output_statistics[material][c]['Qpeak_60s_mod'] = mod_peak
+                    output_statistics[material][c]['basis'] = [delta0, coneExposure] in basis_summary
+            else:
+                runSimulations = False
+
+                #fobi_out, fobi_hog_out, qr_out, fobi_mlr_out, _ = developRepresentativeCurve(mat, nondimtype=nondimtype)
                 
-                output_statistics[material][c]['delta'] = delta0
-                output_statistics[material][c]['coneExposure'] = coneExposure
-                output_statistics[material][c]['Qpeak_60s_exp'] = exp_peak
-                output_statistics[material][c]['Qpeak_60s_mod'] = mod_peak
-                output_statistics[material][c]['basis'] = [delta0, coneExposure] in basis_summary
-        
+                cone_hf_ref = [case_basis[c]['cone'] for c in case_basis][0]
+                cone_d_ref = [case_basis[c]['delta'] for c in case_basis][0]
+                
+                times_trimmed = [case_basis[c]['times_trimmed'] for c in case_basis][0]
+                hrrs_trimmed = [case_basis[c]['hrrs_trimmed'] for c in case_basis][0]
+                
+                chid = material.replace(' ','_')
+                basis_summary = [[case_basis[c]['delta'], case_basis[c]['cone']] for c in case_basis]
+                tend = np.nanmax([(cases[c]['times_trimmed'].max()+cases[c]['tign'])*2 for c in cases])
+                
+                fluxes, deltas, tigns, cases_to_plot = sortCases(cases)
+                
+                workingDir = fileDir + os.sep +'..' + os.sep + 'input_files' + os.sep+ material + os.sep
+                workingDir = workingDir.replace(' ', '_')
+                
+                if os.path.exists(workingDir) is False: os.mkdir(workingDir)
+                # Calculate times to ignition
+                
+                txt = buildFdsFile(chid, cone_hf_ref, cone_d_ref, emissivity, conductivity, density, 
+                                       specific_heat, 20, times_trimmed, hrrs_trimmed, 20000,
+                                       deltas, fluxes, 0.0, ignitionMode='Time', case_tigns=tigns,
+                                       calculateDevcDt=False)
+                
+                with open("%s%s%s.fds"%(workingDir, os.sep, chid), 'w') as f:
+                    f.write(txt)
+                
+                if runSimulations:
+                    runModel(workingDir, chid+".fds", 1, fdsdir, fdscmd, printLiveOutput=False)
+                    
+                data = load_csv(workingDir, chid)
+                for i in range(0, len(cases_to_plot)):
+                    c = cases_to_plot[i]
+                    namespace = '%02d-%03d'%(fluxes[i], deltas[i]*1e3)
+                    #label = r'%s'%(namespace) #'$\mathrm{kW/m^{2}}$'%(coneExposure)
+                    label = r'%0.0f $\mathrm{kW/m^{2}}$'%(fluxes[i])
+                    delta0 = cases[c]['delta']
+                    times = data['Time'].values
+                    hrrpuas = data['"HRRPUA-'+namespace+'"'].values
+                    
+                    mod_peak = getTimeAveragedPeak(times, hrrpuas, windowSize)
+                    exp_peak = getTimeAveragedPeak(cases[c]['times'],cases[c]['HRRs'], windowSize) #, referenceTimes=times)
+                    
+                    output_statistics[material][c] = dict()
+                    for percentile in percentiles:
+                        energyThreshold, exp_t = getTimeAveragedEnergy(cases[c]['times']-cases[c]['tign'],cases[c]['HRRs'], windowSize, percentile)
+                        mod_t, timeAverage = getTimeAveraged_timeToEnergy(times-cases[c]['tign'], hrrpuas, windowSize, energyThreshold)
+                        
+                        output_statistics[material][c]['%0.0f_exp'%(percentile)] = exp_t
+                        output_statistics[material][c]['%0.0f_mod'%(percentile)] = mod_t
+                    print('%s\t%s\t%0.1f\t%0.1f\t%0.1f\t%0.1f'%(material, c, exp_peak, mod_peak, exp_t, mod_t))
+                    
+                    output_statistics[material][c]['delta'] = delta0
+                    output_statistics[material][c]['coneExposure'] = fluxes[i]
+                    output_statistics[material][c]['Qpeak_60s_exp'] = exp_peak
+                    output_statistics[material][c]['Qpeak_60s_mod'] = mod_peak
+                    output_statistics[material][c]['basis'] = [delta0, fluxes[i]] in basis_summary
         
         metric_outputs = dict()
         metrics = ['Qpeak_60s', '90'] #, '10', '25','50','75','90']
@@ -212,7 +283,7 @@ if __name__ == "__main__":
                     #diff2 = [50 if (x > 40) and (x < 60) else x for x in diff2]
                     #diff2 = [75 if (x > 60) else x for x in diff2]
                     #labelNames = {25 : "$\mathrm{q_{cone}'' ~25 kW/m^{2}}$", 50 : "$\mathrm{q_{cone}'' ~50 kW/m^{2}}$", 75 : "$\mathrm{q_{cone}'' ~75 kW/m^{2}}$"}
-                    labelNames = {-1 : r"$\mathrm{q_{cone}''}$ < r$\mathrm{q_{ref}''}$", 0.1 : r"$\mathrm{q_{cone}''}$ = $\mathrm{q_{ref}''}$", 1 : r"$\mathrm{q_{cone}''}$ > $\mathrm{q_{ref}''}$"}
+                    labelNames = {-1 : r"$\mathrm{q_{cone}''}$ < $\mathrm{q_{ref}''}$", 0.1 : r"$\mathrm{q_{cone}''}$ = $\mathrm{q_{ref}''}$", 1 : r"$\mathrm{q_{cone}''}$ > $\mathrm{q_{ref}''}$"}
                     fname = 'uncertainty_statistics_exposure_%s_%s_%s.png'%(nondimtype, style, metric)
                 
                 fig, sigma_m, delta = plotMaterialExtraction(exp_points, mod_points, split, label, diff=diff2, axmin=axmin, axmax=axmax, loglog=loglog, labelName=labelNames, mask=mask)

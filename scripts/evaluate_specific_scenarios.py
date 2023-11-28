@@ -38,11 +38,17 @@ if __name__ == "__main__":
     materials = ['FSRI_Vinyl_Plank_Flooring']
     materials = ['FAA_PC','FAA_PVC', 'FAA_PMMA', 'FAA_HIPS', 'FAA_HDPE']
     #materials =['FSRI_Mineral_Wool_Insulation']
-    materials = ['FSRI_Black_PMMA']
+    #materials = ['FSRI_Black_PMMA']
+    #materials = ['FPL_plywood_oak_13mm']
+    
+    materials = ['FSRI_Polyester_Microfiber_Sheet']
     
     # Output parameters
     (savefigure, closefigure) = (False, False)
     (style, nondimtype) = ('md_mf', 'FoBi_simple_fixed_d')
+    #(style, nondimtype) = ('md_mf', 'FoBi_simple')
+    
+    #(style, nondimtype) = ('md_mf', 'FoBi')
     
     # Initialize parameters
     (fs, lw, s, exp_num_points) = (48, 9, 100, 25)
@@ -65,11 +71,12 @@ if __name__ == "__main__":
         
         coneExposures, thicknesses, cases_to_plot = sortCases(cases)
         (delta_old, exp_tmax, ymax, j, fig) = (-1, 0, 0, 0, False)
-        
+        reference_time, reference_hrrpua, cone_hf_ref = [case_basis[c]['times_trimmed'] for c in case_basis][0], [case_basis[c]['hrrs_trimmed'] for c in case_basis][0], [case_basis[c]['cone'] for c in case_basis][0]
         for i, c in enumerate(cases_to_plot):
             (delta0, coneExposure, tign) = (cases[c]['delta'], cases[c]['cone'], cases[c]['tign'])
             totalEnergy = total_energy_per_delta_ref*delta0
-            times, hrrpuas, totalEnergy2 = runSimulation(times, mat, delta0, coneExposure, totalEnergy, nondim_t, ref_hog, nondimtype=nondimtype)
+            times, hrrpuas, totalEnergy2 = runSimulation(times, mat, delta0, coneExposure, totalEnergy, nondim_t, ref_hog, reference_hrrpua, reference_time, cone_hf_ref, nondimtype=nondimtype)
+            #times, hrrpuas, totalEnergy2 = runSimulation(times, mat, delta0, coneExposure, totalEnergy, nondim_t, ref_hog, nondimtype=nondimtype)
                                            #runSimulation(times, mat, delta0, coneExposure, totalEnergy, fobi_out, hog_out, nondimtype='FoBi'):
             mod_peak = getTimeAveragedPeak(times, hrrpuas, windowSize)
             exp_peak = getTimeAveragedPeak(cases[c]['times'],cases[c]['HRRs'], windowSize)
@@ -99,7 +106,9 @@ if __name__ == "__main__":
             hrr1 = mat['case_basis']['case-1000']['hrrs_trimmed']
             delta1 = mat['case_basis']['case-1000']['delta']
             ref_cone = mat['case_basis']['case-1000']['cone']
-            scaled_t, scaled_hrrpua = spyroScaling(t1, hrr1, delta1, ref_cone, delta0, coneExposure, tign=tign, qflame=25, referenceTimes=times, averageWindow=False) #qflame='Empirical')
+            
+            
+            scaled_t, scaled_hrrpua = spyroScaling(t1, hrr1, delta1, ref_cone, delta0, coneExposure, tign=tign, qflame=25, referenceTimes=times, averageWindow=False)
             plt.plot(scaled_t/60, scaled_hrrpua, lineStyles[2], linewidth=lw, label='simple', color=colors[j])
             
             j = j+1

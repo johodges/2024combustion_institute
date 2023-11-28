@@ -6,12 +6,47 @@ Created on Sat Apr 22 18:18:31 2023
 """
 import matplotlib.pyplot as plt
 import numpy as np
-import os
+import os, shutil
 import pandas as pd
 from matplotlib.lines import Line2D
 import glob
 
 from plotting import getJHcolors, getNewColors
+
+def sortCases(cases):
+    cases_to_plot = np.array(list(cases.keys()))
+    thicknesses = np.array([cases[c]['delta'] for c in cases_to_plot])
+    coneExposures = np.array([cases[c]['cone'] for c in cases_to_plot])
+    tigns = np.array([cases[c]['tign'] for c in cases_to_plot])
+    inds = np.argsort(coneExposures)
+    thicknesses = thicknesses[inds]
+    coneExposures = coneExposures[inds]
+    cases_to_plot = cases_to_plot[inds]
+    tigns = tigns[inds]
+    
+    inds = np.argsort(thicknesses)
+    thicknesses = thicknesses[inds]
+    coneExposures = coneExposures[inds]
+    cases_to_plot = cases_to_plot[inds]
+    tigns = tigns[inds]
+    return coneExposures, thicknesses, tigns, cases_to_plot
+
+def findFds():
+    ''' First check if FDSDIR environmental variable is defined. If not, print
+    warning then use which to look for a checklist. If not found anywhere
+    error out.
+    '''
+    fdsDir = os.getenv('FDSDIR')
+    if fdsDir is not None: return fdsDir, 'fds'
+    print("Warning FDSDIR environmental variable not set. Trying to find FDS in path.")
+    checklist = ['fds', 'fds_ompi_gnu_linux']
+    for check in checklist:
+        fdsPath = shutil.which(check)
+        if fdsPath is not None:
+            fdsDir = os.sep.join(fdsPath.split(os.sep)[:-1]) + os.sep
+            print("FDS found in %s"%(fdsDir))
+            return fdsDir, check
+    print("Warning FDS not found")
 
 def buildFdsFile(chid, cone_hf_ref, cone_d_ref, emissivity, conductivity, density, 
                  specific_heat, Tign, time, hrrpua, tend, deltas, fluxes, front_h,
@@ -67,7 +102,7 @@ def buildFdsFile(chid, cone_hf_ref, cone_d_ref, emissivity, conductivity, densit
         prevTime = time[i]
     y = -0.05
     for i, hf in enumerate(fluxes):
-        hf_ign = estimateHrrpua(cone_hf_ref, hrrpua_ref, hf, 'Froude', qflame_fixed)
+        hf_ign, scaled_hrrpua = estimateHrrpua(cone_hf_ref, hrrpua_ref, hf, qflame_method, qflame_fixed)
         
         delta = deltas[i]
         if i%3 == 0: y = y + 0.1
@@ -229,7 +264,7 @@ def estimateHrrpua(cone_ref, hrrpua_ref, cone_flux, method, fixed_qflame=25):
         prevFlux = scaledFlux
         scaled_hrrpua = (scaledFlux/exposureFlux)*hrrpua_ref
         scaledFlux = estimateExposureFlux(cone_flux, scaled_hrrpua, method, fixed_qflame)
-    return scaledFlux
+    return scaledFlux, scaled_hrrpua
 
 def cleanTrailingTimes(time, value):
     ''' Removes trailing data from a time series, typically nan from
@@ -269,7 +304,9 @@ def timeAverage(time, value, window):
         return time, value
     
     time, value = cleanTrailingTimes(time, value)
-    dt = np.nanmin(time[1:] - time[:-1])
+    dts = time[1:] - time[:-1]
+    dt = np.nanmin(dts[dts > 0])
+    #dt = np.nanmin((time[1:] - time[:-1])
     time, value = interpolateTimeSeriesToDt(time, value, dt)
     
     N = int(np.round(window/dt))
@@ -691,7 +728,7 @@ def calculateThicknessFromHrr(hrrs_trimmed, times_trimmed, mat, c):
     mass[1:] = delta0*density - np.cumsum(hrrs_trimmed[1:]/(1e3*HoC)*(times_trimmed[1:]-times_trimmed[:-1]))
     
     energy = 0
-    warningPrinted = True
+    warningPrinted = False
     for j in range(1, hrrs_trimmed.shape[0]):
         energy += hrrs_trimmed[j]*cone_area/(times_trimmed[j]-times_trimmed[j-1])
         energyFraction[j] = energy / totalEnergy
@@ -725,6 +762,20 @@ def calculateFlameHeatFlux(hrrpua, method, fixed_qflame=25):
         kf = np.log(1-(xr*qa*lm)/(3.6*sig*(Tf**4)*xA))/lm
         
         qflame = sig*(Tf**4)*(1-np.exp(kf*lm))
+    elif method == 'FroudeFixed':
+        if isinstance(hrrpua, np.ndarray):
+            hrrpua[np.isnan(hrrpua)] = 0
+            time = np.linspace(0, hrrpua.shape[0]-1, hrrpua.shape[0])
+            hrrpua_ref = getRepresentativeHrrpua(hrrpua, time)
+        else:
+            hrrpua_ref = hrrpua
+        qstar = hrrpua_ref*cone_area / (1100 * (cone_diameter**2.5))
+        lm = -1.02*cone_diameter + 3.7*cone_diameter * (qstar**0.4)
+        
+        kf = np.log(1-(xr*qa*lm)/(3.6*sig*(Tf**4)*xA))/lm
+        
+        fixed_qflame = sig*(Tf**4)*(1-np.exp(kf*lm))
+        qflame = np.zeros_like(hrrpua) + fixed_qflame
     elif method == 'Empirical':
         qflame = 55*(hrrpua**0.065) - 50
     elif method == 'Fixed':
@@ -734,8 +785,8 @@ def calculateFlameHeatFlux(hrrpua, method, fixed_qflame=25):
 def getFlameMethodFromNonDimType(nondimtype):
     if nondimtype in ['Fo','FoBi','Time']:
         flame_method = 'Froude'
-    elif nondimtype in ['FoBi_simple', 'FoBi_simple_fixed_d']:
-        flame_method = 'Fixed'
+    elif nondimtype in ['FoBi_simple', 'FoBi_simple_fixed_d', 'FoBi_simple_fixed_d_3_4']:
+        flame_method = 'FroudeFixed'
     return flame_method
 
 def analyzeExpCase(mat, c, nondimtype):
@@ -747,7 +798,6 @@ def analyzeExpCase(mat, c, nondimtype):
     delta, charFraction, mass = calculateThicknessFromHrr(hrrs_trimmed, times_trimmed, mat, c)
     
     flame_method = getFlameMethodFromNonDimType(nondimtype)
-    
     coneExposure = c['cone']
     qflame = calculateFlameHeatFlux(hrrs_trimmed, flame_method, fixed_qflame=25)
     qr = qflame + coneExposure
@@ -780,6 +830,11 @@ def getExpNonDimensionalTime(qr, charFraction, delta, mat, c, nondimtype):
         #hr = 0.0154*((qr*1000)**0.75)/1000
         hr = 0.0154*((qr*1000))/1000
         d = delta if (nondimtype == 'FoBi_simple') else np.zeros_like(delta) + delta0
+        d[d < d_min] = d_min
+        nondim_t = hr*t/(density*specific_heat*d)
+    elif nondimtype in ['FoBi_simple_fixed_d_3_4']:
+        hr = 0.0154*((qr*1000)**0.75)/1000
+        d = np.zeros_like(delta) + delta0
         d[d < d_min] = d_min
         nondim_t = hr*t/(density*specific_heat*d)
     return nondim_t, t
@@ -865,9 +920,12 @@ def interpolateBasisCases(mat, qr1, mass1, delta1, nondim_t1, t1, nondimtype):
             nonnan_max = max([nonnan_max, nondim_time_out[ind]])
         except:
             pass
-    inds = np.where(nondim_time_out <= nonnan_max)[0]
+    #inds = np.where(nondim_time_out <= nonnan_max)[0]
+    inds = np.where(nondim_time_out > 0)[0]
     inds = inds[1:]
-    return nondim_time_out[inds], hogs_out[inds, :], qrs_out[inds, :], mlr_out[inds, :], times_out[inds, :]
+    
+    nondim_time_out, hogs_out, qrs_out, mlr_out, times_out = nondim_time_out[inds], hogs_out[inds, :], qrs_out[inds, :], mlr_out[inds, :], times_out[inds, :]
+    return nondim_time_out, hogs_out, qrs_out, mlr_out, times_out
 
 def plotBasisCases(mat, times, hogs, nondim_t, nondimtype, lw, colors, labelPlot):
     case_basis = list(mat['case_basis'].keys())
@@ -902,11 +960,14 @@ def developRepresentativeCurve(mat, nondimtype='FoBi', plot=False, lw=3, colors=
     # Determine representative HoG curve
     qrs_out = np.nanmean(qrs, axis=1)
     hog_out = np.nanmedian(hogs, axis=1)
+    ind = -1
     
+    '''
     try:
         ind = np.where(~np.isnan(hog_out))[0][-1]
     except:
         ind = -1
+    '''
     return nondim_t[:ind], hog_out[:ind], qrs_out[:ind], mlrs[:ind, :], times[:ind, :]
 
 def getFixedModelParams():
@@ -944,7 +1005,8 @@ def getFixedModelParams():
     return params
 
 
-def runSimulation(times, mat, delta0, coneExposure, totalEnergy, fobi_out, hog_out, nondimtype='FoBi'):
+def runSimulation(times, mat, delta0, coneExposure, totalEnergy, fobi_out, hog_out, 
+                  reference_hrrpua, reference_time, cone_hf_ref, nondimtype='FoBi', qflame_fixed=25):
     # Extract material parameters
     (density, conductivity, specific_heat) = (mat['density'], mat['conductivity'], mat['specific_heat'])
     (HoC, emissivity, nu_char) = (mat['heat_of_combustion'], mat['emissivity'], mat['nu_char'])
@@ -972,7 +1034,9 @@ def runSimulation(times, mat, delta0, coneExposure, totalEnergy, fobi_out, hog_o
     d_min = params['d_min']
     
     flame_method = getFlameMethodFromNonDimType(nondimtype)
-    
+    hrrpua_ref = getRepresentativeHrrpua(reference_hrrpua, reference_time)
+    #qref, hrrpua_scaled = estimateExposureFlux(cone_hf_ref, hrrpua_ref, flame_method, qflame_fixed)
+    qref, scaled_hrrpua = estimateHrrpua(cone_hf_ref, hrrpua_ref, coneExposure, flame_method, qflame_fixed)
     for j in range(1, times.shape[0]):
         t = times[j]
         d1 = delta[j-1]
@@ -980,7 +1044,13 @@ def runSimulation(times, mat, delta0, coneExposure, totalEnergy, fobi_out, hog_o
         mix_conductivity = char_conductivity*charFraction[j-1] + conductivity*(1-charFraction[j-1])
         mix_density = char_density*charFraction[j-1] + density*(1-charFraction[j-1])
         
-        qr = calculateFlameHeatFlux(hrrpuas[j-1], flame_method) + coneExposure
+        #qr = estimateHrrpua(cone_hf_ref, hrrpua_ref, coneExposure, flame_method, 25)
+        
+        if flame_method == 'FroudeFixed':
+            fr_hrrpua = scaled_hrrpua
+        else:
+            fr_hrrpua = hrrpuas[j-1]
+        qr = calculateFlameHeatFlux(fr_hrrpua, flame_method) + coneExposure
         
         Bi, Fo, Ts, ht = getDimensionlessNumbers(qr, emissivity, d1, t, mix_conductivity, mix_density, specific_heat)
         
@@ -990,7 +1060,15 @@ def runSimulation(times, mat, delta0, coneExposure, totalEnergy, fobi_out, hog_o
         if nondimtype in ['FoBi_simple', 'FoBi_simple_fixed_d']:
             #hr = 0.0154*((qr*1000)**0.75)/1000
             hr = 0.0154*((qr*1000))/1000
-            if nondimtype == 'FoBi_simple_fixed_d': d = delta0
+            if nondimtype == 'FoBi_simple_fixed_d':
+                d = delta0
+            else:
+                d = d1
+            if d < d_min: d = d_min
+            nondim_t = hr*t/(density*specific_heat*d)
+        if nondimtype in ['FoBi_simple_fixed_d_3_4']:
+            hr = 0.0154*((qr*1000)**0.75)/1000
+            d = delta0
             if d < d_min: d = d_min
             nondim_t = hr*t/(density*specific_heat*d)
         ref = np.interp(nondim_t, fobi_out, hog_out)
@@ -1053,8 +1131,8 @@ def runSimulation(times, mat, delta0, coneExposure, totalEnergy, fobi_out, hog_o
             break
         '''
         #print('%0.1f\t%0.1f\t%0.1f\t%0.1f\t%0.1f\t%0.1f\t%0.1f\t%0.1f\t%0.4f\t%0.1f\t%0.1f\t%0.4f'%(qr, Tg, ht, Bi, Fo, hrrpuas[j], mass[j-1], mass[j], mlr, mlr*dt,dt,delta[j]))
-    if energy[-1] > totalEnergy:
-        runSimulation(times, mat, delta0, coneExposure, energy[-1]*1.01, fobi_out, hog_out, nondimtype='FoBi')
+    #if energy[-1] > totalEnergy:
+    #    runSimulation(times, mat, delta0, coneExposure, energy[-1]*1.01, fobi_out, hog_out, nondimtype='FoBi')
     return times, hrrpuas, energy[-1]
 
 
@@ -1191,7 +1269,7 @@ def spyroScaling(ref_time, ref_hrrpua, ref_delta, ref_cone, delta, cone, tign=0,
     if qflame == 'Empirical':
         h_ref = getRepresentativeHrrpua(ref_hrrpua, ref_time)
         q1 = estimateExposureFlux(ref_cone, h_ref)
-        q2 = estimateHrrpua(ref_cone, h_ref, cone)
+        q2, _ = estimateHrrpua(ref_cone, h_ref, cone)
     else:
         q1 = ref_cone + qflame
         q2 = cone + qflame

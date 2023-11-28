@@ -10,47 +10,12 @@ import pandas as pd
 import os, shutil, subprocess
 
 from plotting import getJHcolors, getPlotLimits, finishSimulationFigure
-from algorithms import getMaterials, processCaseData
-from algorithms import getFixedModelParams, buildFdsFile, runModel, load_csv
+from algorithms import getMaterials, processCaseData, sortCases
+from algorithms import getFixedModelParams, buildFdsFile, runModel, load_csv, findFds
 from algorithms import calculateUncertainty, plotMaterialExtraction, calculateUncertaintyBounds
 from algorithms import getTimeAveragedPeak
 from algorithms import getTimeAveragedEnergy, getTimeAveraged_timeToEnergy
 from algorithms import getRepresentativeHrrpua, estimateExposureFlux, estimateHrrpua
-
-def findFds():
-    ''' First check if FDSDIR environmental variable is defined. If not, print
-    warning then use which to look for a checklist. If not found anywhere
-    error out.
-    '''
-    fdsDir = os.getenv('FDSDIR')
-    if fdsDir is not None: return fdsDir, 'fds'
-    print("Warning FDSDIR environmental variable not set. Trying to find FDS in path.")
-    checklist = ['fds', 'fds_ompi_gnu_linux']
-    for check in checklist:
-        fdsPath = shutil.which(check)
-        if fdsPath is not None:
-            fdsDir = os.sep.join(fdsPath.split(os.sep)[:-1]) + os.sep
-            print("FDS found in %s"%(fdsDir))
-            return fdsDir, check
-    print("Warning FDS not found")
-
-def sortCases(cases):
-    cases_to_plot = np.array(list(cases.keys()))
-    thicknesses = np.array([cases[c]['delta'] for c in cases_to_plot])
-    coneExposures = np.array([cases[c]['cone'] for c in cases_to_plot])
-    tigns = np.array([cases[c]['tign'] for c in cases_to_plot])
-    inds = np.argsort(coneExposures)
-    thicknesses = thicknesses[inds]
-    coneExposures = coneExposures[inds]
-    cases_to_plot = cases_to_plot[inds]
-    tigns = tigns[inds]
-    
-    inds = np.argsort(thicknesses)
-    thicknesses = thicknesses[inds]
-    coneExposures = coneExposures[inds]
-    cases_to_plot = cases_to_plot[inds]
-    tigns = tigns[inds]
-    return coneExposures, thicknesses, tigns, cases_to_plot
 
 if __name__ == "__main__":
     
@@ -61,6 +26,7 @@ if __name__ == "__main__":
     materials = list(spec_file_dict.keys())
     
     materials = ['FAA_PMMA', 'FAA_HDPE', 'FAA_HIPS', 'FAA_PC', 'FAA_PVC']
+    materials = ['FSRI_Polyester_Microfiber_Sheet']
     nondimtype = 'FoBi_simple_fixed_d'
     figoutdir = "figures"
     runSimulations = False
@@ -129,7 +95,7 @@ if __name__ == "__main__":
             runModel(workingDir, chid+".fds", 1, fdsdir, fdscmd, printLiveOutput=False)
         
         if plotResults:
-            (savefigure, closefigure) = (True, True)
+            (savefigure, closefigure) = (True, False)
             data = load_csv(workingDir, chid)
             # Plot results
             if figoutdir is not None:
@@ -169,6 +135,13 @@ if __name__ == "__main__":
                     exp_points.append(exp_peak)
                     mod_points.append(mod_peak)
                     ms.append(material)
+                    
+                    for percentile in [90]:
+                        energyThreshold, exp_t = getTimeAveragedEnergy(cases[c]['times']-cases[c]['tign'],cases[c]['HRRs'], windowSize, percentile)
+                        mod_t, timeAverage = getTimeAveraged_timeToEnergy(times.values-cases[c]['tign'], hrrpuas.values, windowSize, energyThreshold)
+                        
+                        print(material, namespace, exp_t, mod_t)
+                    
                 fig_namespace = '..//figures//fdsout_' + material + '_%dmm.png'%(delta_old*1e3)
                 finishSimulationFigure(ymax, exp_tmax*1.3, savefigure, closefigure, fig_namespace, fs)
             

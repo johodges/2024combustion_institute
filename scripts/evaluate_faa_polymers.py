@@ -6,27 +6,13 @@ Created on Sat Apr 22 18:18:31 2023
 """
 import matplotlib.pyplot as plt
 import numpy as np
+import os
 
 from plotting import finishSimulationFigure, getPlotLimits, getJHcolors
-from algorithms import getMaterials, processCaseData
+from algorithms import getMaterials, processCaseData, sortCases
 from algorithms import developRepresentativeCurve
-from algorithms import runSimulation, getTimeAveragedPeak
+from algorithms import runSimulation, getTimeAveragedPeak, buildFdsFile, findFds, runModel, load_csv
 from algorithms import plotMaterialExtraction
-
-def sortCases(cases):
-    cases_to_plot = np.array(list(cases.keys()))
-    thicknesses = np.array([cases[c]['delta'] for c in cases_to_plot])
-    coneExposures = np.array([cases[c]['cone'] for c in cases_to_plot])
-    inds = np.argsort(coneExposures)
-    thicknesses = thicknesses[inds]
-    coneExposures = coneExposures[inds]
-    cases_to_plot = cases_to_plot[inds]
-    
-    inds = np.argsort(thicknesses)
-    thicknesses = thicknesses[inds]
-    coneExposures = coneExposures[inds]
-    cases_to_plot = cases_to_plot[inds]
-    return coneExposures, thicknesses, cases_to_plot
 
 if __name__ == "__main__":
     
@@ -58,13 +44,15 @@ if __name__ == "__main__":
     #labels = ['3mm','8mm','27mm']
     labels = ['3','8','27']
     
+    reference_time, reference_hrrpua, cone_hf_ref = [case_basis[c]['times_trimmed'] for c in case_basis][0], [case_basis[c]['hrrs_trimmed'] for c in case_basis][0], [case_basis[c]['cone'] for c in case_basis][0]
     plt.figure(figsize=(10,8))
     for i, c in enumerate(['case-003','case-004','case-005']): #enumerate(list(cases.keys())):
         delta0 = cases[c]['delta']
         coneExposure = cases[c]['cone']
         totalEnergy = total_energy_per_delta_ref*delta0
-        times, hrrpuas, totalEnergy2 = runSimulation(times_out, mat, delta0, coneExposure, totalEnergy, fobi_out, fobi_hog_out, nondimtype=nondimtype)
-        fo_times, fo_hrrpuas, fo_totalEnergy2 = runSimulation(times_out, mat, delta0, coneExposure, totalEnergy, fo_out, fo_hog_out, nondimtype='Fo')
+        times, hrrpuas, totalEnergy2 = runSimulation(times_out, mat, delta0, coneExposure, totalEnergy, fobi_out, fobi_hog_out, reference_hrrpua, reference_time, cone_hf_ref,nondimtype=nondimtype)
+        fo_times, fo_hrrpuas, fo_totalEnergy2 = runSimulation(times_out, mat, delta0, coneExposure, totalEnergy, fo_out, fo_hog_out, reference_hrrpua, reference_time, cone_hf_ref, nondimtype='Fo')
+        
         
         plt.scatter(cases[c]['times'][::5]/60,cases[c]['HRRs'][::5], label=labels[i]+': Exp', s=50, linewidth=lw, color=colors[i])
         plt.semilogx((fo_times+cases[c]['tign'])/60, fo_hrrpuas, '--', linewidth=lw, label=labels[i]+': Fo', color=colors[i])
@@ -182,14 +170,15 @@ if __name__ == "__main__":
         thicknesses = np.array([cases[c]['delta'] for c in cases_to_plot])
         coneExposures = np.array([cases[c]['cone'] for c in cases_to_plot])
         
-        coneExposures, thicknesses, cases_to_plot = sortCases(cases)
+        coneExposures, thicknesses, tigns, cases_to_plot = sortCases(cases)
         
         (delta_old, exp_tmax, ymax, j, fig) = (-1, 0, 0, 0, False)
+        reference_time, reference_hrrpua, cone_hf_ref = [case_basis[c]['times_trimmed'] for c in case_basis][0], [case_basis[c]['hrrs_trimmed'] for c in case_basis][0], [case_basis[c]['cone'] for c in case_basis][0]
         
         for i, c in enumerate(cases_to_plot): #[cases_to_plot[caseToPlot]]):
             (delta0, coneExposure, tign) = (cases[c]['delta'], cases[c]['cone'], cases[c]['tign'])
             totalEnergy = total_energy_per_delta_ref*delta0
-            times, hrrpuas, totalEnergy2 = runSimulation(times, mat, delta0, coneExposure, totalEnergy, fobi_out, fobi_hog_out, nondimtype=nondimtype)
+            times, hrrpuas, totalEnergy2 = runSimulation(times, mat, delta0, coneExposure, totalEnergy, fobi_out, fobi_hog_out, reference_hrrpua, reference_time, cone_hf_ref, nondimtype=nondimtype)
             
             mod_peak = getTimeAveragedPeak(times, hrrpuas, 60)
             exp_peak = getTimeAveragedPeak(cases[c]['times'],cases[c]['HRRs'], 60) #, referenceTimes=times)
@@ -233,3 +222,124 @@ if __name__ == "__main__":
     fig, sigma_m, delta = plotMaterialExtraction(exp_points, mod_points, split, label, diff=diff2, axmin=axmin, axmax=axmax, loglog=loglog, labelName=labelNames)
     plt.savefig('..//figures//FAA_materials_stats.png', dpi=300)
     
+    
+    
+    # Change to fds
+    nondimtype = 'FDS'
+    style = 'FDS'
+    
+    # Initialize stats outputs
+    exp_points = []
+    mod_points = []
+    ms = []
+    
+    fdsdir, fdscmd = findFds()
+    fileDir = os.path.dirname(os.path.abspath(__file__))
+    for material in materials:
+        xlim, ylim = getPlotLimits(material)
+        spec_file_dict[material] = processCaseData(spec_file_dict[material])
+        
+        mat = spec_file_dict[material]
+        (density, conductivity, specific_heat) = (mat['density'], mat['conductivity'], mat['specific_heat'])
+        (HoC, emissivity, nu_char) = (mat['heat_of_combustion'], mat['emissivity'], mat['nu_char'])
+        
+        (cases, case_basis, data) = (mat['cases'], mat['case_basis'], mat['data'])
+        matClass = mat['materialClass']
+        
+        totalEnergyMax = np.nanmax([case_basis[c]['totalEnergy'] for c in case_basis])
+        
+        if totalEnergyMax < 100:
+            print("Total energy for %s is %0.1f < 100, skipping"%(material, totalEnergyMax))
+            continue
+        
+        
+        if style != 'FDS':
+            sim_times = np.linspace(0, 20000, 20001)
+            
+            total_energy_per_deltas = [case_basis[c]['totalEnergy']/case_basis[c]['delta'] for c in case_basis]
+            total_energy_per_delta_ref = np.mean(total_energy_per_deltas)
+            
+            fobi_out, fobi_hog_out, qr_out, fobi_mlr_out, _ = developRepresentativeCurve(mat, nondimtype=nondimtype)
+            
+            basis_summary = [[case_basis[c]['delta'], case_basis[c]['cone']] for c in case_basis]
+            reference_time, reference_hrrpua, cone_hf_ref = [case_basis[c]['times_trimmed'] for c in case_basis][0], [case_basis[c]['hrrs_trimmed'] for c in case_basis][0], [case_basis[c]['cone'] for c in case_basis][0]
+            for i, c in enumerate(list(cases.keys())):
+                delta0 = cases[c]['delta']
+                coneExposure = cases[c]['cone']
+                totalEnergy = total_energy_per_delta_ref*delta0
+                
+                if totalEnergy < 100:
+                    continue
+                
+                times, hrrpuas, totalEnergy2 = runSimulation(sim_times, mat, delta0, coneExposure, totalEnergy, fobi_out, fobi_hog_out, reference_hrrpua, reference_time, cone_hf_ref, nondimtype=nondimtype)
+                
+                if totalEnergy2 > totalEnergy:
+                    print("Warning %s case %s more energy released than implied by basis and thickness"%(material, c))
+                
+                mod_peak = getTimeAveragedPeak(times, hrrpuas, windowSize)
+                exp_peak = getTimeAveragedPeak(cases[c]['times'],cases[c]['HRRs'], windowSize)
+                
+                exp_points.append(exp_peak)
+                mod_points.append(mod_peak)
+                ms.append(material)
+                
+        else:
+            runSimulations = False
+
+            #fobi_out, fobi_hog_out, qr_out, fobi_mlr_out, _ = developRepresentativeCurve(mat, nondimtype=nondimtype)
+            
+            cone_hf_ref = [case_basis[c]['cone'] for c in case_basis][0]
+            cone_d_ref = [case_basis[c]['delta'] for c in case_basis][0]
+            
+            times_trimmed = [case_basis[c]['times_trimmed'] for c in case_basis][0]
+            hrrs_trimmed = [case_basis[c]['hrrs_trimmed'] for c in case_basis][0]
+            
+            chid = material.replace(' ','_')
+            basis_summary = [[case_basis[c]['delta'], case_basis[c]['cone']] for c in case_basis]
+            tend = np.nanmax([(cases[c]['times_trimmed'].max()+cases[c]['tign'])*2 for c in cases])
+            
+            fluxes, deltas, tigns, cases_to_plot = sortCases(cases)
+            
+            workingDir = fileDir + os.sep +'..' + os.sep + 'input_files' + os.sep+ material + os.sep
+            workingDir = workingDir.replace(' ', '_')
+            
+            if os.path.exists(workingDir) is False: os.mkdir(workingDir)
+            # Calculate times to ignition
+            
+            txt = buildFdsFile(chid, cone_hf_ref, cone_d_ref, emissivity, conductivity, density, 
+                                   specific_heat, 20, times_trimmed, hrrs_trimmed, 20000,
+                                   deltas, fluxes, 15.0, ignitionMode='Time', case_tigns=tigns,
+                                   calculateDevcDt=False)
+            
+            with open("%s%s%s.fds"%(workingDir, os.sep, chid), 'w') as f:
+                f.write(txt)
+            
+            if runSimulations:
+                runModel(workingDir, chid+".fds", 1, fdsdir, fdscmd, printLiveOutput=False)
+                
+            data = load_csv(workingDir, chid)
+            for i in range(0, len(cases_to_plot)):
+                c = cases_to_plot[i]
+                namespace = '%02d-%03d'%(fluxes[i], deltas[i]*1e3)
+                #label = r'%s'%(namespace) #'$\mathrm{kW/m^{2}}$'%(coneExposure)
+                label = r'%0.0f $\mathrm{kW/m^{2}}$'%(fluxes[i])
+                delta0 = cases[c]['delta']
+                times = data['Time'].values
+                hrrpuas = data['"HRRPUA-'+namespace+'"'].values
+                
+                mod_peak = getTimeAveragedPeak(times, hrrpuas, windowSize)
+                exp_peak = getTimeAveragedPeak(cases[c]['times'],cases[c]['HRRs'], windowSize) #, referenceTimes=times)
+                
+                exp_points.append(exp_peak)
+                mod_points.append(mod_peak)
+                ms.append(material)
+    
+    (axmin, axmax, loglog) = (0.0, 2500, False)
+    split = ms
+    diff2 = ms
+    labelNames = {}
+    for m in materials: labelNames[m] = m.replace("FAA_","")
+    label = '60s Avg'
+    
+    fig, sigma_m, delta = plotMaterialExtraction(exp_points, mod_points, split, label, diff=diff2, axmin=axmin, axmax=axmax, loglog=loglog, labelName=labelNames)
+    plt.savefig('..//figures//FAA_materials_stats_fds.png', dpi=300)
