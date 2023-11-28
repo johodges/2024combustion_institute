@@ -297,7 +297,7 @@ if __name__ == "__main__":
                     print('%s & %0.2f & %0.2f'%(key, delta[key], sigma_m[key]))
                 plt.savefig('..//figures//'+fname, dpi=300)
             detailed_output = pd.DataFrame(np.array([mc, m, ddd, c, exp_points, mod_points]).T, columns=['Class','Material','Thickness','Exposure','Exp','Mod'])
-            detailed_output.to_csv('output_%s_%s.csv'%(metric, nondimtype))
+            detailed_output.to_csv('..//output_%s_%s.csv'%(metric, nondimtype))
         totalUncertaintyStatistics[style] = metric_outputs
     
     with pd.ExcelWriter('..//figures//%s_metrics_output.xlsx'%(nondimtype)) as writer:
