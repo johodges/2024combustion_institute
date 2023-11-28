@@ -1,1 +1,6 @@
-*.csv
+*/*.csv
+*/*.txt
+*/*.smv
+*/*.out
+*/*.sinfo
+*/*.binfo
