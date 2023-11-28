@@ -9,7 +9,7 @@ This repository contains the data, scripts, and technical documents required to 
   ```
 * Pre-process data
   ```
-  cd 2024combustion_institute/scripts
+  cd nondimensional_spyro/scripts
   python fsri_collect_thermophysical_properties.py
   python fsri_collect_cone_data.py
   python process_fsri_database.py
