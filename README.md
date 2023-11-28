@@ -5,7 +5,7 @@ This repository contains the data, scripts, and technical documents required to 
 ## Instructions
 * Clone this repository with submodules
   ```
-  git clone --recurse-submodules https://github.com/johodges/2024combustion_institute
+  git clone --recurse-submodules https://github.com/johodges/nondimensional_spyro
   ```
 * Pre-process data
   ```
